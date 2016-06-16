@@ -1,6 +1,7 @@
 ---
 layout: post
-title: "The Wonderful and Wild World of OpenStack Deployment"
+title: "From my notes: OpenStack deployment overview"
+date: 2016-06-16T16:02:54-04:00
 ---
 
 Disclaimer
@@ -62,7 +63,4 @@ tool for key/value lookup, enabling us to separate code from data.
 Before you run TripleO, however, you need to have an environment set up for it.
 [Tripleo-quickstart](https://github.com/openstack/tripleo-quickstart) is a set of Ansible playbooks
 that calls the necessary setup code before calling TripleO.
-
-
-
 
