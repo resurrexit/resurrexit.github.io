@@ -53,7 +53,7 @@ images, while Neutron is in charge of network connectivity. For all OpenStack se
 have Keystone for authentication and authorization, and Horizon is a modular web-based interface
 built with Django. Ironic is for OpenStack bare metal provisioning, and so on.
 
-See [this README] (http://docs.openstack.org/developer/tripleo-incubator/README.html)
+See [README] (http://docs.openstack.org/developer/tripleo-incubator/README.html)
 for a great overview of the tech stack used in the project. In short, the installation is managed
 Heat, a template-based orchestration engine. It acts as the puppet-master in the post deployment
 phase. Heat calls Puppet, passing data for Hiera to find the appropriate module. Remember that
