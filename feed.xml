@@ -1,30 +1,117 @@
----
-layout: null
----
 <?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>{{ site.title | xml_escape }}</title>
-    <description>{{ site.description | xml_escape }}</description>
-    <link>{{ site.url }}{{ site.baseurl }}/</link>
-    <atom:link href="{{ "/feed.xml" | prepend: site.baseurl | prepend: site.url }}" rel="self" type="application/rss+xml"/>
-    <pubDate>{{ site.time | date_to_rfc822 }}</pubDate>
-    <lastBuildDate>{{ site.time | date_to_rfc822 }}</lastBuildDate>
-    <generator>Jekyll v{{ jekyll.version }}</generator>
-    {% for post in site.posts limit:10 %}
+    <title>coding until the tea hours of dawn</title>
+    <description>A blog about computers and tea.
+</description>
+    <link>http://resurrexit.github.io/</link>
+    <atom:link href="http://resurrexit.github.io/feed.xml" rel="self" type="application/rss+xml"/>
+    <pubDate>Thu, 23 Jun 2016 14:15:16 -0400</pubDate>
+    <lastBuildDate>Thu, 23 Jun 2016 14:15:16 -0400</lastBuildDate>
+    <generator>Jekyll v3.1.6</generator>
+    
       <item>
-        <title>{{ post.title | xml_escape }}</title>
-        <description>{{ post.content | xml_escape }}</description>
-        <pubDate>{{ post.date | date_to_rfc822 }}</pubDate>
-        <link>{{ post.url | prepend: site.baseurl | prepend: site.url }}</link>
-        <guid isPermaLink="true">{{ post.url | prepend: site.baseurl | prepend: site.url }}</guid>
-        {% for tag in post.tags %}
-        <category>{{ tag | xml_escape }}</category>
-        {% endfor %}
-        {% for cat in post.categories %}
-        <category>{{ cat | xml_escape }}</category>
-        {% endfor %}
+        <title>From my notes: OpenStack deployment overview</title>
+        <description>&lt;h2 id=&quot;disclaimer&quot;&gt;Disclaimer&lt;/h2&gt;
+
+&lt;p&gt;Before diving in, I’d like to state that these are my (an intern’s) notes. There may
+be inaccuracies or misunderstandings of various concepts or terms. If you notice
+such, I would love it if you’d let me know. I get to learn from it, and you get
+an attribution. Everyone wins!&lt;/p&gt;
+
+&lt;h2 id=&quot;openstack-deployment&quot;&gt;OpenStack deployment&lt;/h2&gt;
+
+&lt;p&gt;Currently, in terms of tools to make deployment easier, we have TripleO, which stands
+for OpenStack on OpenStack. TripleO uses OpenStack as an undercloud (or seed) to deploy
+the overcloud (this is where your users will be living). The overcloud is where the
+guest virtual machines will be running, and where all the OpenStack services you need for
+your users will be running. Simply put, the overcloud is the functional cloud, and the
+undercloud is used to get you there.&lt;/p&gt;
+
+&lt;p&gt;The undercloud is used to deploy and manage the overcloud. The undercloud is a
+single-node OpenStack installation on bare metal. It contains the OpenStack services
+essential to deploying the overcloud. These services are Nova, Neutron,
+Glance, Keystone, Ironic, Heat, Horizon, and Ceilometer. Each one of the services listed here
+provide something essential to deploy the overcloud; for example, Glance handles the disk
+images, while Neutron is in charge of network connectivity. For all OpenStack services, we
+have Keystone for authentication and authorization, and Horizon is a modular web-based interface
+built with Django. Ironic is for OpenStack bare metal provisioning, and so on.
+&lt;a href=&quot;http://docs.openstack.org/security-guide/introduction/introduction-to-openstack.html&quot;&gt;Image source&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;See &lt;a href=&quot;http://docs.openstack.org/developer/tripleo-incubator/README.html&quot;&gt;README&lt;/a&gt;
+for a great overview of the tech stack used in the project. In short, the installation is managed
+Heat, a template-based orchestration engine. It acts as the puppet-master in the post deployment
+phase. Heat calls Puppet, passing data for Hiera to find the appropriate module. Remember that
+Puppet is designed for handling configuration management for a large number of systems. Hiera is a
+tool for key/value lookup, enabling us to separate code from data.&lt;/p&gt;
+
+&lt;p&gt;Before you run TripleO, however, you need to have an environment set up for it.
+&lt;a href=&quot;https://github.com/openstack/tripleo-quickstart&quot;&gt;Tripleo-quickstart&lt;/a&gt; is a set of Ansible playbooks
+that calls the necessary setup code before calling TripleO.&lt;/p&gt;
+
+&lt;h2 id=&quot;some-definitions&quot;&gt;Some definitions&lt;/h2&gt;
+
+&lt;p&gt;PXE booting – remember the boot sequence menu that you can trigger upon booting
+a computer by pressing F12? Okay, so it may not be F12 on your particular machine,
+but there’s &lt;em&gt;some&lt;/em&gt; key or key combination to get to that menu. Generally, there
+will be some options to boot off of USB, hard disk, and the network. When you
+select the network option, the computer will search for a PXE server to pull a
+software image off of. The good thing about PXE is that it relies on two
+industry-standard network protocols, namely DHCP and TFTP (trivial FTP).&lt;/p&gt;
+
+&lt;p&gt;Hypervisor – computer software, firmware, hardware &lt;em&gt;dedicated&lt;/em&gt; to running virtual
+machines. Note: OpenStack is &lt;em&gt;not&lt;/em&gt; a hypervisor. See
+&lt;a href=&quot;http://blog.rackspace.com/three-openstack-myths-to-consider-as-we-close-out-2013/&quot;&gt;this&lt;/a&gt;
+for an explanation why. If you are too lazy to visit that link, OpenStack does not
+replace your current platforms. Instead, Nova is designed to talk to multiple kinds
+of hypervisors. It works &lt;em&gt;alongside&lt;/em&gt; your usual hypervisors, like KVM, ESXi, and so on.&lt;/p&gt;
+
+&lt;p&gt;Provisioning – getting an image onto the system. Hence, the term bare metal provisioning
+refers to the process of getting an image onto bare metal, also known as the computer’s
+hardware.&lt;/p&gt;
+
+&lt;h2 id=&quot;further-reading&quot;&gt;Further Reading&lt;/h2&gt;
+&lt;p&gt;&lt;a href=&quot;http://ken.pepple.info/openstack/2012/09/25/openstack-folsom-architecture/&quot;&gt;OpenStack Folsom Architecture&lt;/a&gt;&lt;sup id=&quot;fnref:1&quot;&gt;&lt;a href=&quot;#fn:1&quot; class=&quot;footnote&quot;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;footnotes&quot;&gt;Footnotes&lt;/h2&gt;
+&lt;p&gt;renamed to Neutron.&lt;/p&gt;
+&lt;div class=&quot;footnotes&quot;&gt;
+  &lt;ol&gt;
+    &lt;li id=&quot;fn:1&quot;&gt;
+      &lt;p&gt;Folsom is already EOL, but the descriptions of the services are mostly good. The network service has been &lt;a href=&quot;#fnref:1&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+    &lt;/li&gt;
+  &lt;/ol&gt;
+&lt;/div&gt;
+</description>
+        <pubDate>Thu, 16 Jun 2016 16:02:54 -0400</pubDate>
+        <link>http://resurrexit.github.io/2016/06/16/openstack-deployment-overview.html</link>
+        <guid isPermaLink="true">http://resurrexit.github.io/2016/06/16/openstack-deployment-overview.html</guid>
+        
+        
       </item>
-    {% endfor %}
+    
+      <item>
+        <title>Hello World</title>
+        <description>&lt;p&gt;Finally. I don’t think anyone else is going to read this, but if you’re reading
+this, and you’re not me – well. Hi! This is my programmer’s notebook, something
+I’ve been wanting to start on for a long time.&lt;/p&gt;
+
+&lt;p&gt;A little about me: I am currently studying computer science at some university
+somewhere. As of summer 2016, I am an intern at Red Hat with the Security and
+Identity Engineering team. Most of posts (for now, anyway) will be related to my
+work here.&lt;/p&gt;
+
+&lt;p&gt;I’ve written MIPS assembly, C, Perl, Python, Java, Objective-C, Scheme,
+Smalltalk, Erlang, Prolog, and Swift all at different times in my life. Note that
+I can only really claim to be proficient at a few of these.&lt;/p&gt;
+
+</description>
+        <pubDate>Tue, 07 Jun 2016 09:46:27 -0400</pubDate>
+        <link>http://resurrexit.github.io/2016/06/07/hello-world.html</link>
+        <guid isPermaLink="true">http://resurrexit.github.io/2016/06/07/hello-world.html</guid>
+        
+        
+      </item>
+    
   </channel>
 </rss>
