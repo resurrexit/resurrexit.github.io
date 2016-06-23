@@ -66,3 +66,12 @@ of hypervisors. It works *alongside* your usual hypervisors, like KVM, ESXi, and
 Provisioning -- getting an image onto the system. Hence, the term bare metal provisioning
 refers to the process of getting an image onto bare metal, also known as the computer's
 hardware.
+
+Further Reading
+---------------
+[OpenStack Folsom Architecture](http://ken.pepple.info/openstack/2012/09/25/openstack-folsom-architecture/)[^1]
+
+Footnotes
+---------
+[^1]: Folsom is already EOL, but the descriptions of the services are mostly good. The network service has been
+renamed to Neutron.
