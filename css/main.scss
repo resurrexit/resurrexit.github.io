@@ -28,7 +28,9 @@ $content-width:    800px;
 $on-palm:          600px;
 $on-laptop:        800px;
 
-
+sup {
+  vertical-align: super;
+}
 
 // Use media queries like this:
 // @include media-query($on-palm) {
@@ -51,3 +53,4 @@ $on-laptop:        800px;
         "layout",
         "syntax-highlighting"
 ;
+
