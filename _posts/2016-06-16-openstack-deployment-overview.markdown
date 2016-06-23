@@ -31,7 +31,7 @@ provide something essential to deploy the overcloud; for example, Glance handles
 images, while Neutron is in charge of network connectivity. For all OpenStack services, we
 have Keystone for authentication and authorization, and Horizon is a modular web-based interface
 built with Django. Ironic is for OpenStack bare metal provisioning, and so on.
-{% img http://docs.openstack.org/security-guide/_images/marketecture-diagram.png title:"OpenStack Services Diagram" %}
+{% picture marketecture-diagram.png alt="OpenStack Services Diagram" %}
 [Image source](http://docs.openstack.org/security-guide/introduction/introduction-to-openstack.html)
 
 See [README](http://docs.openstack.org/developer/tripleo-incubator/README.html)
@@ -73,5 +73,4 @@ Further Reading
 
 Footnotes
 ---------
-[^1]: Folsom is already EOL, but the descriptions of the services are mostly good. The network service has been
-renamed to Neutron.
+[^1]: Folsom is already EOL, but the descriptions of the services are mostly good. The network service has been renamed to Neutron.
