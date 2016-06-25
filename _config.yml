@@ -16,3 +16,7 @@ github_username:  resurrexit
 
 # Build settings
 markdown: kramdown
+
+# Disqus comments
+disqus_short_name: "resurrexit"
+disqus_show_comment_count: false

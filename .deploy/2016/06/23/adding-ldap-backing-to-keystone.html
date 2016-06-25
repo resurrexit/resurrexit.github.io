@@ -6,12 +6,11 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>coding until the tea hours of dawn</title>
-  <meta name="description" content="A blog about computers and tea.
-">
+  <title>Adding LDAP backing to specific domains in Keystone</title>
+  <meta name="description" content="Introduction">
 
   <link rel="stylesheet" href="/css/main.css">
-  <link rel="canonical" href="http://resurrexit.github.io/">
+  <link rel="canonical" href="http://resurrexit.github.io/2016/06/23/adding-ldap-backing-to-keystone.html">
   <link rel="alternate" type="application/rss+xml" title="coding until the tea hours of dawn" href="http://resurrexit.github.io/feed.xml">
 </head>
 
@@ -55,41 +54,69 @@
 
     <div class="page-content">
       <div class="wrapper">
-        <div class="home">
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
 
-  <h1 class="page-heading">Posts</h1>
+  <header class="post-header">
+    <h1 class="post-title" itemprop="name headline">Adding LDAP backing to specific domains in Keystone</h1>
+    <p class="post-meta"><time datetime="2016-06-23T16:29:08-04:00" itemprop="datePublished">Jun 23, 2016</time></p>
+  </header>
 
-  <ul class="post-list">
-    
-      <li>
-        <span class="post-meta">Jun 23, 2016</span>
+  <div class="post-content" itemprop="articleBody">
+    <h2 id="introduction">Introduction</h2>
 
-        <h2>
-          <a class="post-link" href="/2016/06/23/adding-ldap-backing-to-keystone.html">Adding LDAP backing to specific domains in Keystone</a>
-        </h2>
-      </li>
-    
-      <li>
-        <span class="post-meta">Jun 16, 2016</span>
+<p>My first task here was to set up a working Tripleo installation (which I
+did, using <a href="http://adam.younglogic.com/2016/05/freeipa-tripleo-undercloud/">this</a>,
+with some modifications). Next, add an LDAP backed domain to Keystone.</p>
 
-        <h2>
-          <a class="post-link" href="/2016/06/16/openstack-deployment-overview.html">From my notes: OpenStack deployment overview</a>
-        </h2>
-      </li>
-    
-      <li>
-        <span class="post-meta">Jun 7, 2016</span>
+<p>In general, I followed blog posts to add LDAP backing to a domain I created named freeipa.
+This is meant to document where I deviated from the posts I followed.</p>
 
-        <h2>
-          <a class="post-link" href="/2016/06/07/hello-world.html">Hello World</a>
-        </h2>
-      </li>
-    
-  </ul>
+<p>Quick one-liner on what Keystone is: Keystone is the OpenStack service that handles
+the authentication and authorization for the other services, like Glance, Nova, etc.
+By default, Keystone is backed by SQL. What if we want a specific domain in Keystone
+to be backed by a different driver, like LDAP?</p>
 
-  <p class="rss-subscribe">subscribe <a href="/feed.xml">via RSS</a></p>
+<h2 id="using-identity-api-v3-in-keystone">Using Identity API v3 in Keystone</h2>
 
+<p>Before we start changing configuration values to tell Keystone to use LDAP, we must start
+by changing the API version. This is essential, because Identity v2 does not support multiple
+domains. To do that, use the script from
+<a href="http://adam.younglogic.com/2016/03/v3fromv2/">this post</a>. The script changes
+the environment variable <code class="highlighter-rouge">OS_IDENTITY_API_VERSION</code> in your rc files to be 3, instead of 2.</p>
+
+<h2 id="enabling-domain-specific-backends">Enabling domain specific backends</h2>
+
+<p>Edit the values in the <code class="highlighter-rouge">[identity]</code> block indicated below to enable domain specific backends in
+<code class="highlighter-rouge">/etc/keystone/keystone.conf</code>.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>[identity]
+domain_specific_drivers_enabled = true
+domain_config_dir = /etc/keystone/domains
+</code></pre>
 </div>
+
+<p>This is telling Keystone two things:<br />
+  1. domains can have specific drivers (i.e., one domain backed by LDAP and another backed by SQL)<br />
+  2. check under <code class="highlighter-rouge">/etc/keystone/domains</code> for any specific domain configuration files.</p>
+
+<p>Now, make a directory <code class="highlighter-rouge">domains</code> under <code class="highlighter-rouge">/etc/keystone</code>. Note that this directory, and all
+files in it need to belong to the <code class="highlighter-rouge">keystone</code> user. Use <code class="highlighter-rouge">chown</code> to fix any issues.</p>
+
+<p>Keystone will look in this directory for any domain specific config files, and they should be of
+the format keystone.x.conf, where x is the name of the domain we are configuring.</p>
+
+<p>See the posts below in Resources for what the config file should look like. After you are finished
+editing your domain specific config file,  we must restart httpd (instead of openstack-keystone)
+to pick up the changes. Use  <code class="highlighter-rouge">sudo systemctl restart httpd.service</code>.</p>
+
+<h2 id="resources">Resources</h2>
+<p><a href="http://adam.younglogic.com/2015/02/adding-an-ldap-backed-domain-to-a-packstack-install/">Adding an LDAP backed domain to a Packstack install</a><br />
+<a href="http://adam.younglogic.com/2014/08/getting-service-users-out-of-ldap/">Getting service users out of LDAP</a></p>
+
+
+  </div>
+
+</article>
 
       </div>
     </div>
