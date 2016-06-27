@@ -6,9 +6,71 @@
 </description>
     <link>http://resurrexit.github.io/</link>
     <atom:link href="http://resurrexit.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Thu, 23 Jun 2016 14:15:16 -0400</pubDate>
-    <lastBuildDate>Thu, 23 Jun 2016 14:15:16 -0400</lastBuildDate>
+    <pubDate>Mon, 27 Jun 2016 15:13:19 -0400</pubDate>
+    <lastBuildDate>Mon, 27 Jun 2016 15:13:19 -0400</lastBuildDate>
     <generator>Jekyll v3.1.6</generator>
+    
+      <item>
+        <title>Adding LDAP backing to specific domains in Keystone</title>
+        <description>&lt;h2 id=&quot;introduction&quot;&gt;Introduction&lt;/h2&gt;
+
+&lt;p&gt;My first task here was to set up a working Tripleo installation (which I
+did, using &lt;a href=&quot;http://adam.younglogic.com/2016/05/freeipa-tripleo-undercloud/&quot;&gt;this&lt;/a&gt;,
+with some modifications). Next, add an LDAP backed domain to Keystone.&lt;/p&gt;
+
+&lt;p&gt;In general, I followed blog posts to add LDAP backing to a domain I created named freeipa.
+This is meant to document where I deviated from the posts I followed.&lt;/p&gt;
+
+&lt;p&gt;Quick one-liner on what Keystone is: Keystone is the OpenStack service that handles
+the authentication and authorization for the other services, like Glance, Nova, etc.
+By default, Keystone is backed by SQL. What if we want a specific domain in Keystone
+to be backed by a different driver, like LDAP?&lt;/p&gt;
+
+&lt;h2 id=&quot;using-identity-api-v3-in-keystone&quot;&gt;Using Identity API v3 in Keystone&lt;/h2&gt;
+
+&lt;p&gt;Before we start changing configuration values to tell Keystone to use LDAP, we must start
+by changing the API version. This is essential, because Identity v2 does not support multiple
+domains. To do that, use the script from
+&lt;a href=&quot;http://adam.younglogic.com/2016/03/v3fromv2/&quot;&gt;this post&lt;/a&gt;. The script changes
+the environment variable &lt;code class=&quot;highlighter-rouge&quot;&gt;OS_IDENTITY_API_VERSION&lt;/code&gt; in your rc files to be 3, instead of 2.&lt;/p&gt;
+
+&lt;h2 id=&quot;enabling-domain-specific-backends&quot;&gt;Enabling domain specific backends&lt;/h2&gt;
+
+&lt;p&gt;Edit the values in the &lt;code class=&quot;highlighter-rouge&quot;&gt;[identity]&lt;/code&gt; block indicated below to enable domain specific backends in
+&lt;code class=&quot;highlighter-rouge&quot;&gt;/etc/keystone/keystone.conf&lt;/code&gt;.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;[identity]
+domain_specific_drivers_enabled = true
+domain_config_dir = /etc/keystone/domains
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;This is telling Keystone two things:&lt;br /&gt;
+  1. domains can have specific drivers (i.e., one domain backed by LDAP and another backed by SQL)&lt;br /&gt;
+  2. check under &lt;code class=&quot;highlighter-rouge&quot;&gt;/etc/keystone/domains&lt;/code&gt; for any specific domain configuration files.&lt;/p&gt;
+
+&lt;p&gt;Now, make a directory &lt;code class=&quot;highlighter-rouge&quot;&gt;domains&lt;/code&gt; under &lt;code class=&quot;highlighter-rouge&quot;&gt;/etc/keystone&lt;/code&gt;. Note that this directory, and all
+files in it need to belong to the &lt;code class=&quot;highlighter-rouge&quot;&gt;keystone&lt;/code&gt; user. Use &lt;code class=&quot;highlighter-rouge&quot;&gt;chown&lt;/code&gt; to fix any issues.&lt;/p&gt;
+
+&lt;p&gt;Keystone will look in this directory for any domain specific config files, and they should be of
+the format keystone.x.conf, where x is the name of the domain we are configuring.&lt;/p&gt;
+
+&lt;p&gt;See the posts below in Resources for what the config file should look like. After you are finished
+editing your domain specific config file,  we must restart httpd (instead of openstack-keystone)
+to pick up the changes. Use  &lt;code class=&quot;highlighter-rouge&quot;&gt;sudo systemctl restart httpd.service&lt;/code&gt;.&lt;/p&gt;
+
+&lt;h2 id=&quot;resources&quot;&gt;Resources&lt;/h2&gt;
+&lt;p&gt;&lt;a href=&quot;http://adam.younglogic.com/2015/02/adding-an-ldap-backed-domain-to-a-packstack-install/&quot;&gt;Adding an LDAP backed domain to a Packstack install&lt;/a&gt;&lt;br /&gt;
+&lt;a href=&quot;http://adam.younglogic.com/2014/08/getting-service-users-out-of-ldap/&quot;&gt;Getting service users out of LDAP&lt;/a&gt;&lt;br /&gt;
+&lt;a href=&quot;http://www.gazlene.net/kerberos-devstack.html&quot;&gt;Kerberos and Devstack&lt;/a&gt;&lt;/p&gt;
+
+</description>
+        <pubDate>Thu, 23 Jun 2016 16:29:08 -0400</pubDate>
+        <link>http://resurrexit.github.io/2016/06/23/adding-ldap-backing-to-keystone.html</link>
+        <guid isPermaLink="true">http://resurrexit.github.io/2016/06/23/adding-ldap-backing-to-keystone.html</guid>
+        
+        
+      </item>
     
       <item>
         <title>From my notes: OpenStack deployment overview</title>
@@ -35,7 +97,9 @@ Glance, Keystone, Ironic, Heat, Horizon, and Ceilometer. Each one of the service
 provide something essential to deploy the overcloud; for example, Glance handles the disk
 images, while Neutron is in charge of network connectivity. For all OpenStack services, we
 have Keystone for authentication and authorization, and Horizon is a modular web-based interface
-built with Django. Ironic is for OpenStack bare metal provisioning, and so on.
+built with Django. Ironic is for OpenStack bare metal provisioning, and so on.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;http://docs.openstack.org/security-guide/_images/marketecture-diagram.png&quot; alt=&quot;OpenStack services diagram&quot; /&gt;
 &lt;a href=&quot;http://docs.openstack.org/security-guide/introduction/introduction-to-openstack.html&quot;&gt;Image source&lt;/a&gt;&lt;/p&gt;
 
 &lt;p&gt;See &lt;a href=&quot;http://docs.openstack.org/developer/tripleo-incubator/README.html&quot;&gt;README&lt;/a&gt;
@@ -74,11 +138,10 @@ hardware.&lt;/p&gt;
 &lt;p&gt;&lt;a href=&quot;http://ken.pepple.info/openstack/2012/09/25/openstack-folsom-architecture/&quot;&gt;OpenStack Folsom Architecture&lt;/a&gt;&lt;sup id=&quot;fnref:1&quot;&gt;&lt;a href=&quot;#fn:1&quot; class=&quot;footnote&quot;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 
 &lt;h2 id=&quot;footnotes&quot;&gt;Footnotes&lt;/h2&gt;
-&lt;p&gt;renamed to Neutron.&lt;/p&gt;
 &lt;div class=&quot;footnotes&quot;&gt;
   &lt;ol&gt;
     &lt;li id=&quot;fn:1&quot;&gt;
-      &lt;p&gt;Folsom is already EOL, but the descriptions of the services are mostly good. The network service has been &lt;a href=&quot;#fnref:1&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+      &lt;p&gt;Folsom is already EOL, but the descriptions of the services are mostly good. The network service has been renamed to Neutron. &lt;a href=&quot;#fnref:1&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
     &lt;/li&gt;
   &lt;/ol&gt;
 &lt;/div&gt;

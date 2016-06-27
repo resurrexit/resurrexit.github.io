@@ -57,6 +57,6 @@ to pick up the changes. Use  `sudo systemctl restart httpd.service`.
 Resources
 ---------
 [Adding an LDAP backed domain to a Packstack install](http://adam.younglogic.com/2015/02/adding-an-ldap-backed-domain-to-a-packstack-install/)  
-[Getting service users out of LDAP](http://adam.younglogic.com/2014/08/getting-service-users-out-of-ldap/)
+[Getting service users out of LDAP](http://adam.younglogic.com/2014/08/getting-service-users-out-of-ldap/)  
 [Kerberos and Devstack](http://www.gazlene.net/kerberos-devstack.html)
 
