@@ -6,12 +6,11 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>coding until the tea hours of dawn</title>
-  <meta name="description" content="A blog about computers and tea.
-">
+  <title>Using Tripleo-quickstart for a working OpenStack install</title>
+  <meta name="description" content="This post is meant to record my notes on modifications that I made to the installprocess outlined here.This is not meant to be a standalone tutorial.">
 
   <link rel="stylesheet" href="/css/main.css">
-  <link rel="canonical" href="http://resurrexit.github.io/">
+  <link rel="canonical" href="http://resurrexit.github.io/2016/06/30/using-tripleo-quickstart-to-get-a-working-openstack-install.html">
   <link rel="alternate" type="application/rss+xml" title="coding until the tea hours of dawn" href="http://resurrexit.github.io/feed.xml">
 </head>
 
@@ -55,49 +54,68 @@
 
     <div class="page-content">
       <div class="wrapper">
-        <div class="home">
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
 
-  <h1 class="page-heading">Posts</h1>
+  <header class="post-header">
+    <h1 class="post-title" itemprop="name headline">Using Tripleo-quickstart for a working OpenStack install</h1>
+    <p class="post-meta"><time datetime="2016-06-30T14:48:31-04:00" itemprop="datePublished">Jun 30, 2016</time></p>
+  </header>
 
-  <ul class="post-list">
-    
-      <li>
-        <span class="post-meta">Jun 30, 2016</span>
+  <div class="post-content" itemprop="articleBody">
+    <p>This post is meant to record my notes on modifications that I made to the install
+process outlined <a href="http://adam.younglogic.com/2016/05/freeipa-tripleo-undercloud/">here</a>.
+This is <em>not</em> meant to be a standalone tutorial.</p>
 
-        <h2>
-          <a class="post-link" href="/2016/06/30/using-tripleo-quickstart-to-get-a-working-openstack-install.html">Using Tripleo-quickstart for a working OpenStack install</a>
-        </h2>
-      </li>
-    
-      <li>
-        <span class="post-meta">Jun 23, 2016</span>
+<p>We are still applying a patch to quickstart that builds the Identity virtual machine,
+but instead of using patch 315749, we are using patch 328373 instead. This change
+includes the changes made in 315749, which were to modify the roles to allow for
+multiple undercloud nodes. Additionally, it also includes two other patch sets: one to
+provision the Identity VM, and one to do the setup.</p>
 
-        <h2>
-          <a class="post-link" href="/2016/06/23/adding-ldap-backing-to-keystone.html">Adding LDAP backing to specific domains in Keystone</a>
-        </h2>
-      </li>
-    
-      <li>
-        <span class="post-meta">Jun 16, 2016</span>
-
-        <h2>
-          <a class="post-link" href="/2016/06/16/openstack-deployment-overview.html">From my notes: OpenStack deployment overview</a>
-        </h2>
-      </li>
-    
-      <li>
-        <span class="post-meta">Jun 7, 2016</span>
-
-        <h2>
-          <a class="post-link" href="/2016/06/07/hello-world.html">Hello World</a>
-        </h2>
-      </li>
-    
-  </ul>
-
-  <p class="rss-subscribe">subscribe <a href="/feed.xml">via RSS</a></p>
-
+<div class="highlighter-rouge"><pre class="highlight"><code>mkdir ~/.quickstart
+mkdir ~/devel &amp;&amp; cd ~/devel
+git clone https://github.com/openstack/tripleo-quickstart
+cd tripleo-quickstart
+git review -d 328373
+$HOME/.quickstart/tripleo-quickstart/quickstart.sh --extra-vars identity_setup=true --retain-inventory warp.lab4.eng.bos.redhat.com
+</code></pre>
 </div>
+
+<p>Again, if you don’t have git review set up, pull and apply the changes described
+<a href="https://review.openstack.org/#/c/328373/">here</a> in a new branch.</p>
+
+<p>For this changeset, you must symlink the playbooks directory and the tripleo-quickstart
+directory (both found under ~/.quickstart) to their corresponding directories under the
+git repo we just cloned. You may want to do something like:<br />
+<code class="highlighter-rouge">
+ln -s $HOME/devel/tripleo-quickstart/playbooks .quickstart/playbooks
+</code></p>
+
+<p>In addition to this, you may also need to <em>remove</em> the directory before creating your symlinks.</p>
+
+<p>Of course, you would substitute in your own FQDN where we have warp.lab4.eng.bos.redhat.com
+From here, nothing much changes from the original tutorial, aside from the launch of the
+quickstart shell script and the variables in the hosts file. According to the changes in
+review.openstack, launch it while passing in the extra variable of <code class="highlighter-rouge">identity_setup=true</code>.</p>
+
+<p>As mentioned in the previous paragraph,  remember to, edit the <code class="highlighter-rouge">deployment_dir</code> variable in your
+~/.quickstart/hosts file to match your directory. I <em>suspect</em> this variable isn’t needed, being
+that we are not using <a href="https://github.com/admiyo/ossipee">ossipee</a> to build our FreeIPA server.<sup id="fnref:1"><a href="#fn:1" class="footnote">1</a></sup>
+Instead, we are <em>trying</em> to use tripleo-quickstart with patch 328373 to do this.</p>
+
+<h2 id="definitions">Definitions</h2>
+
+<div class="footnotes">
+  <ol>
+    <li id="fn:1">
+      <p>Much like tripleo-quickstart, Ossipee is a project meant to build a small OpenStack cluster, using a PackStack install. Ossipee predates tripleo-quickstart. That leads me to PackStack: PackStack uses Puppet to configure and installs everything via RPMs. Compare that with Devstack, which uses git checkouts and shell scripts to install everything needed for OpenStack. <a href="#fnref:1" class="reversefootnote">&#8617;</a></p>
+    </li>
+  </ol>
+</div>
+
+  </div>
+
+</article>
 
       </div>
     </div>

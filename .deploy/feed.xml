@@ -6,9 +6,69 @@
 </description>
     <link>http://resurrexit.github.io/</link>
     <atom:link href="http://resurrexit.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Mon, 27 Jun 2016 15:13:19 -0400</pubDate>
-    <lastBuildDate>Mon, 27 Jun 2016 15:13:19 -0400</lastBuildDate>
+    <pubDate>Thu, 30 Jun 2016 15:07:00 -0400</pubDate>
+    <lastBuildDate>Thu, 30 Jun 2016 15:07:00 -0400</lastBuildDate>
     <generator>Jekyll v3.1.6</generator>
+    
+      <item>
+        <title>Using Tripleo-quickstart for a working OpenStack install</title>
+        <description>&lt;p&gt;This post is meant to record my notes on modifications that I made to the install
+process outlined &lt;a href=&quot;http://adam.younglogic.com/2016/05/freeipa-tripleo-undercloud/&quot;&gt;here&lt;/a&gt;.
+This is &lt;em&gt;not&lt;/em&gt; meant to be a standalone tutorial.&lt;/p&gt;
+
+&lt;p&gt;We are still applying a patch to quickstart that builds the Identity virtual machine,
+but instead of using patch 315749, we are using patch 328373 instead. This change
+includes the changes made in 315749, which were to modify the roles to allow for
+multiple undercloud nodes. Additionally, it also includes two other patch sets: one to
+provision the Identity VM, and one to do the setup.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;mkdir ~/.quickstart
+mkdir ~/devel &amp;amp;&amp;amp; cd ~/devel
+git clone https://github.com/openstack/tripleo-quickstart
+cd tripleo-quickstart
+git review -d 328373
+$HOME/.quickstart/tripleo-quickstart/quickstart.sh --extra-vars identity_setup=true --retain-inventory warp.lab4.eng.bos.redhat.com
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;Again, if you don’t have git review set up, pull and apply the changes described
+&lt;a href=&quot;https://review.openstack.org/#/c/328373/&quot;&gt;here&lt;/a&gt; in a new branch.&lt;/p&gt;
+
+&lt;p&gt;For this changeset, you must symlink the playbooks directory and the tripleo-quickstart
+directory (both found under ~/.quickstart) to their corresponding directories under the
+git repo we just cloned. You may want to do something like:&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+ln -s $HOME/devel/tripleo-quickstart/playbooks .quickstart/playbooks
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;In addition to this, you may also need to &lt;em&gt;remove&lt;/em&gt; the directory before creating your symlinks.&lt;/p&gt;
+
+&lt;p&gt;Of course, you would substitute in your own FQDN where we have warp.lab4.eng.bos.redhat.com
+From here, nothing much changes from the original tutorial, aside from the launch of the
+quickstart shell script and the variables in the hosts file. According to the changes in
+review.openstack, launch it while passing in the extra variable of &lt;code class=&quot;highlighter-rouge&quot;&gt;identity_setup=true&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;As mentioned in the previous paragraph,  remember to, edit the &lt;code class=&quot;highlighter-rouge&quot;&gt;deployment_dir&lt;/code&gt; variable in your
+~/.quickstart/hosts file to match your directory. I &lt;em&gt;suspect&lt;/em&gt; this variable isn’t needed, being
+that we are not using &lt;a href=&quot;https://github.com/admiyo/ossipee&quot;&gt;ossipee&lt;/a&gt; to build our FreeIPA server.&lt;sup id=&quot;fnref:1&quot;&gt;&lt;a href=&quot;#fn:1&quot; class=&quot;footnote&quot;&gt;1&lt;/a&gt;&lt;/sup&gt;
+Instead, we are &lt;em&gt;trying&lt;/em&gt; to use tripleo-quickstart with patch 328373 to do this.&lt;/p&gt;
+
+&lt;h2 id=&quot;definitions&quot;&gt;Definitions&lt;/h2&gt;
+
+&lt;div class=&quot;footnotes&quot;&gt;
+  &lt;ol&gt;
+    &lt;li id=&quot;fn:1&quot;&gt;
+      &lt;p&gt;Much like tripleo-quickstart, Ossipee is a project meant to build a small OpenStack cluster, using a PackStack install. Ossipee predates tripleo-quickstart. That leads me to PackStack: PackStack uses Puppet to configure and installs everything via RPMs. Compare that with Devstack, which uses git checkouts and shell scripts to install everything needed for OpenStack. &lt;a href=&quot;#fnref:1&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+    &lt;/li&gt;
+  &lt;/ol&gt;
+&lt;/div&gt;
+</description>
+        <pubDate>Thu, 30 Jun 2016 14:48:31 -0400</pubDate>
+        <link>http://resurrexit.github.io/2016/06/30/using-tripleo-quickstart-to-get-a-working-openstack-install.html</link>
+        <guid isPermaLink="true">http://resurrexit.github.io/2016/06/30/using-tripleo-quickstart-to-get-a-working-openstack-install.html</guid>
+        
+        
+      </item>
     
       <item>
         <title>Adding LDAP backing to specific domains in Keystone</title>
