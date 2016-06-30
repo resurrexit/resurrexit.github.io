@@ -28,9 +28,12 @@ Again, if you don't have git review set up, pull and apply the changes described
 
 For this changeset, you must symlink the playbooks directory and the tripleo-quickstart
 directory (both found under ~/.quickstart) to their corresponding directories under the
-git repo we just cloned. You may want to do something like:
-`ln -s $HOME/devel/tripleo-quickstart/playbooks .quickstart/playbooks`. In addition to this,
-you may also need to *remove* the directory before creating your symlinks.
+git repo we just cloned. You may want to do something like:  
+```
+ln -s $HOME/devel/tripleo-quickstart/playbooks .quickstart/playbooks
+```
+
+In addition to this, you may also need to *remove* the directory before creating your symlinks.
 
 Of course, you would substitute in your own FQDN where we have warp.lab4.eng.bos.redhat.com
 From here, nothing much changes from the original tutorial, aside from the launch of the
@@ -45,7 +48,4 @@ Instead, we are *trying* to use tripleo-quickstart with patch 328373 to do this.
 Definitions
 -----------
 
-[^1]: Much like tripleo-quickstart, Ossipee is a project meant to build a small OpenStack cluster, using a PackStack install.
-That leads me to PackStack: PackStack uses Puppet to configure and installs everything via RPMs.
-Compare that with Devstack, which uses git checkouts and shell scripts to install everything needed
-for OpenStack. Ossipee predates tripleo-quickstart.
+[^1]: Much like tripleo-quickstart, Ossipee is a project meant to build a small OpenStack cluster, using a PackStack install. Ossipee predates tripleo-quickstart. That leads me to PackStack: PackStack uses Puppet to configure and installs everything via RPMs. Compare that with Devstack, which uses git checkouts and shell scripts to install everything needed for OpenStack.
