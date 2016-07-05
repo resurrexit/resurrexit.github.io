@@ -48,4 +48,4 @@ Instead, we are *trying* to use tripleo-quickstart with patch 328373 to do this.
 Definitions
 -----------
 
-[^1]: Much like tripleo-quickstart, Ossipee is a project meant to build a small OpenStack cluster, using a PackStack install. Ossipee predates tripleo-quickstart. That leads me to PackStack: PackStack uses Puppet to configure and installs everything via RPMs. Compare that with Devstack, which uses git checkouts and shell scripts to install everything needed for OpenStack.
+[^1]: Much like tripleo-quickstart, Ossipee is a project meant to build a small OpenStack cluster, using a PackStack install. Ossipee predates tripleo-quickstart. That leads me to PackStack: PackStack is a command line utility using Puppet modules to configure and installs everything via RPMs. PackStack is for existing servers. Compare that with Devstack, which uses git checkouts and shell scripts to install everything needed for OpenStack.
