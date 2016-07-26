@@ -6,8 +6,8 @@
 </description>
     <link>http://resurrexit.github.io/</link>
     <atom:link href="http://resurrexit.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Tue, 26 Jul 2016 12:15:15 -0400</pubDate>
-    <lastBuildDate>Tue, 26 Jul 2016 12:15:15 -0400</lastBuildDate>
+    <pubDate>Tue, 26 Jul 2016 13:10:46 -0400</pubDate>
+    <lastBuildDate>Tue, 26 Jul 2016 13:10:46 -0400</lastBuildDate>
     <generator>Jekyll v3.1.6</generator>
     
       <item>
@@ -15,16 +15,15 @@
         <description>&lt;h2 id=&quot;introduction&quot;&gt;Introduction&lt;/h2&gt;
 
 &lt;p&gt;I am in the process of writing a Heat template that creates and provisions a FreeIPA server.
-The Heat template uses an OS::Heat::SoftwareConfig encapsulating a bash script to prepare for,
-install, and configure FreeIPA. When the VM reaches the step of running &lt;code class=&quot;highlighter-rouge&quot;&gt;ipa-server-install&lt;/code&gt;, it
-fails with:&lt;/p&gt;
+The Heat template uses an OS::Heat::SoftwareConfig encapsulating a bash script to install and
+configure FreeIPA. When the VM starts to run &lt;code class=&quot;highlighter-rouge&quot;&gt;ipa-server-install&lt;/code&gt;, it fails with:&lt;/p&gt;
 
-&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;2016-07-20T14:23:12Z WARNING Invalid IP address 192.0.2.19 for identity.warp.lab4.eng.bos.redhat.com: cannot use IANA reserved IP address
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;WARNING Invalid IP address 192.0.2.19 for identity.warp.lab4.eng.bos.redhat.com: cannot use IANA reserved IP address
 &lt;/code&gt;&lt;/pre&gt;
 &lt;/div&gt;
 
-&lt;p&gt;It turns out that this is not a problem with my script, but rather a problem with the IP range that
-tripleo-quickstart uses by default for the undercloud. The block &lt;code class=&quot;highlighter-rouge&quot;&gt;192.0.2.0/24&lt;/code&gt; has been
+&lt;p&gt;It turns out that this is not a problem with my script, but rather, a problem with the IP range that
+tripleo-quickstart defaults to for the undercloud. The block &lt;code class=&quot;highlighter-rouge&quot;&gt;192.0.2.0/24&lt;/code&gt; has been
 assigned for use in documentation and example code only. See &lt;a href=&quot;https://tools.ietf.org/html/rfc5735&quot;&gt;here&lt;/a&gt;
 for more details.&lt;/p&gt;
 
@@ -35,7 +34,7 @@ a different block. In fact, Juan Osorio has been trying to get this &lt;a href=&
 
 &lt;p&gt;First, we’ll generate a new &lt;code class=&quot;highlighter-rouge&quot;&gt;undercloud.conf&lt;/code&gt; using &lt;a href=&quot;http://ucw-bnemec.rhcloud.com/&quot;&gt;this&lt;/a&gt;. It’s not
 quite as simple as editing &lt;code class=&quot;highlighter-rouge&quot;&gt;network_cidr&lt;/code&gt; in the configuration file, as all the network settings need
-to match up. The tool I’m linking to is a helpful way to ensure that they are valid.&lt;/p&gt;
+to match up. Thus, the tool I’m linking to is a helpful way to ensure that they are valid.&lt;/p&gt;
 
 &lt;p&gt;Because I was unaware that one had to clean up the neutron resources before re-installing, I ran
 &lt;code class=&quot;highlighter-rouge&quot;&gt;openstack undercloud install&lt;/code&gt; after I put my new &lt;code class=&quot;highlighter-rouge&quot;&gt;undercloud.conf&lt;/code&gt; in the home directory. The install
@@ -67,11 +66,11 @@ INFO: (os-refresh-config) [ERROR] Aborting...
 &lt;h4 id=&quot;step-2-forming-a-hypothesis&quot;&gt;Step 2: Forming a hypothesis&lt;/h4&gt;
 
 &lt;p&gt;As we can see, the install aborted in the post-configure phase because we still have ports that have an IP allocation from the subnet that
-needs to be cleaned up. If we can do the clean-up now, then we can move on to re-running the undercloud install.&lt;/p&gt;
+needs to be cleaned up.&lt;/p&gt;
 
-&lt;p&gt;Commands like &lt;code class=&quot;highlighter-rouge&quot;&gt;nova list&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;neutron net-list&lt;/code&gt; aren’t responding. This is a problem, since we’ll need Neutron to respond to make the
-calls to clean up its resources. Is it the same problem we encountered before? If it is, then we know that this is because
-Keystone is down or not responding properly. Let’s try running a command to the identity service, like &lt;code class=&quot;highlighter-rouge&quot;&gt;openstack token issue&lt;/code&gt;. We get this error message:&lt;/p&gt;
+&lt;p&gt;Commands like &lt;code class=&quot;highlighter-rouge&quot;&gt;nova list&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;neutron net-list&lt;/code&gt; aren’t responding. This is a problem, since we’ll need Neutron to respond. Is it the same
+problem we encountered before? If it is, then we know that this is because Keystone is down or not responding properly. Let’s try running a
+command to the identity service, like &lt;code class=&quot;highlighter-rouge&quot;&gt;openstack token issue&lt;/code&gt;. We get this error message:&lt;/p&gt;
 
 &lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Discovering versions from the identity service failed when creating the password plugin. Attempting to determine version from URL.
 Unable to establish connection to http://192.0.2.1:5000/v2.0/tokens
@@ -80,7 +79,7 @@ Unable to establish connection to http://192.0.2.1:5000/v2.0/tokens
 
 &lt;h4 id=&quot;step-3-verifying-the-truth-value-of-this-hypothesis&quot;&gt;Step 3: Verifying the truth value of this hypothesis&lt;/h4&gt;
 
-&lt;p&gt;Before we go any further into the rabbit hole, let’s restart relevant services to ensure that this isn’t the same error as before. Restart&lt;/p&gt;
+&lt;p&gt;Before we go any further into the rabbit hole, let’s restart relevant services to ensure that this isn’t the same error as before.&lt;/p&gt;
 
 &lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;sudo systemctl restart rabbitmq-server.service
 sudo systemctl restart httpd.service
@@ -116,8 +115,8 @@ in stackrc to match the new address. Now, calling &lt;code class=&quot;highlight
 
 &lt;h2 id=&quot;continuing-on&quot;&gt;Continuing on&lt;/h2&gt;
 
-&lt;p&gt;The undercloud install is still in a failed state. All we’ve done so far is fix the services that broke as a result of the
-install failing halfway. We still need to clean up and restart the the undercloud install. According to 
+&lt;p&gt;The undercloud install is still in a failed state. All we’ve done so far is fix the services that broke (as a result of the
+install failing halfway). We still need to clean up and restart the install. According to 
 &lt;a href=&quot;https://bugzilla.redhat.com/show_bug.cgi?id=1228862&quot;&gt;this bugzilla&lt;/a&gt;&lt;sup id=&quot;fnref:2&quot;&gt;&lt;a href=&quot;#fn:2&quot; class=&quot;footnote&quot;&gt;2&lt;/a&gt;&lt;/sup&gt;, we have to delete the Neutron resources by hand.&lt;/p&gt;
 
 &lt;p&gt;First, delete all the ports here:&lt;/p&gt;
@@ -147,12 +146,14 @@ us.&lt;/p&gt;
 &lt;h2 id=&quot;for-further-reference&quot;&gt;For further reference&lt;/h2&gt;
 
 &lt;p&gt;Quoting the tripleo installation docs&lt;sup id=&quot;fnref:3&quot;&gt;&lt;a href=&quot;#fn:3&quot; class=&quot;footnote&quot;&gt;3&lt;/a&gt;&lt;/sup&gt;, “openstack undercloud install can be rerun to reapply changes from undercloud.conf to the undercloud. 
-Note that this should not be done if an overcloud has already been deployed or is in progress.” This is what I did wrong. While I did not have a
-full-blown overcloud deployed, I did have a node (the FreeIPA one I’ve been working on) sitting on the overcloud, on ctlplane. I &lt;em&gt;think&lt;/em&gt; this is
-what caused the error. Next time, when rerunning the undercloud install, remember to clean up any resources that may cause issues.&lt;/p&gt;
+Note that this should not be done if an overcloud has already been deployed or is in progress.”&lt;/p&gt;
+
+&lt;p&gt;This is what I did wrong. While I did not have a full-blown overcloud deployed, I did have a node (the FreeIPA one) sitting on the overcloud, attached to ctlplane. I &lt;em&gt;think&lt;/em&gt; this is
+what caused the error. Next time, when rerunning the undercloud install, remember to clean up any resources that may cause issues &lt;em&gt;first&lt;/em&gt;.&lt;/p&gt;
 
 &lt;h2 id=&quot;to-be-continued&quot;&gt;To be continued…&lt;/h2&gt;
-&lt;p&gt;After running the undercloud install (which succeeded, by the way), we came across some strangeness in ironic.&lt;/p&gt;
+&lt;p&gt;After running the undercloud install (which succeeded, by the way), we came across some strangeness in ironic. There will be an upcoming post on
+the issues we’ve seen.&lt;/p&gt;
 
 &lt;h2 id=&quot;footnotes&quot;&gt;Footnotes&lt;/h2&gt;
 
