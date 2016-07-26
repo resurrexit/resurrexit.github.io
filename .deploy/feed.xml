@@ -6,9 +6,323 @@
 </description>
     <link>http://resurrexit.github.io/</link>
     <atom:link href="http://resurrexit.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Thu, 30 Jun 2016 15:07:00 -0400</pubDate>
-    <lastBuildDate>Thu, 30 Jun 2016 15:07:00 -0400</lastBuildDate>
+    <pubDate>Tue, 26 Jul 2016 12:15:15 -0400</pubDate>
+    <lastBuildDate>Tue, 26 Jul 2016 12:15:15 -0400</lastBuildDate>
     <generator>Jekyll v3.1.6</generator>
+    
+      <item>
+        <title>Debugging failed undercloud (re)installs</title>
+        <description>&lt;h2 id=&quot;introduction&quot;&gt;Introduction&lt;/h2&gt;
+
+&lt;p&gt;I am in the process of writing a Heat template that creates and provisions a FreeIPA server.
+The Heat template uses an OS::Heat::SoftwareConfig encapsulating a bash script to prepare for,
+install, and configure FreeIPA. When the VM reaches the step of running &lt;code class=&quot;highlighter-rouge&quot;&gt;ipa-server-install&lt;/code&gt;, it
+fails with:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;2016-07-20T14:23:12Z WARNING Invalid IP address 192.0.2.19 for identity.warp.lab4.eng.bos.redhat.com: cannot use IANA reserved IP address
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;It turns out that this is not a problem with my script, but rather a problem with the IP range that
+tripleo-quickstart uses by default for the undercloud. The block &lt;code class=&quot;highlighter-rouge&quot;&gt;192.0.2.0/24&lt;/code&gt; has been
+assigned for use in documentation and example code only. See &lt;a href=&quot;https://tools.ietf.org/html/rfc5735&quot;&gt;here&lt;/a&gt;
+for more details.&lt;/p&gt;
+
+&lt;p&gt;FreeIPA doesn’t accept IP addresses in that range. As such, we need to re-install our undercloud with
+a different block. In fact, Juan Osorio has been trying to get this &lt;a href=&quot;https://review.openstack.org/#/c/343443/&quot;&gt;patch&lt;/a&gt; in.&lt;/p&gt;
+
+&lt;h2 id=&quot;problem&quot;&gt;Problem&lt;/h2&gt;
+
+&lt;p&gt;First, we’ll generate a new &lt;code class=&quot;highlighter-rouge&quot;&gt;undercloud.conf&lt;/code&gt; using &lt;a href=&quot;http://ucw-bnemec.rhcloud.com/&quot;&gt;this&lt;/a&gt;. It’s not
+quite as simple as editing &lt;code class=&quot;highlighter-rouge&quot;&gt;network_cidr&lt;/code&gt; in the configuration file, as all the network settings need
+to match up. The tool I’m linking to is a helpful way to ensure that they are valid.&lt;/p&gt;
+
+&lt;p&gt;Because I was unaware that one had to clean up the neutron resources before re-installing, I ran
+&lt;code class=&quot;highlighter-rouge&quot;&gt;openstack undercloud install&lt;/code&gt; after I put my new &lt;code class=&quot;highlighter-rouge&quot;&gt;undercloud.conf&lt;/code&gt; in the home directory. The install
+fails.&lt;/p&gt;
+
+&lt;h2 id=&quot;debugging&quot;&gt;Debugging&lt;/h2&gt;
+
+&lt;h4 id=&quot;step-1-information-gathering&quot;&gt;Step 1: Information gathering&lt;/h4&gt;
+
+&lt;p&gt;The error log for the install can be found in &lt;code class=&quot;highlighter-rouge&quot;&gt;$HOME/.instack/install-undercloud.log&lt;/code&gt;. Let’s scroll down. We see error messages that look like
+this:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;New cidr 192.168.0.0/24 does not equal old cidr 192.0.2.0/24
+INFO: + echo &#39;Will attempt to delete and recreate subnet 45e7fc6b-aa7c-4cf7-b191-fd475cf81e02&#39;
+INFO: Will attempt to delete and recreate subnet 45e7fc6b-aa7c-4cf7-b191-fd475cf81e02
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;and subsequently&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;INFO: Unable to complete operation on subnet 45e7fc6b-aa7c-4cf7-b191-fd475cf81e02: One or more ports have an IP allocation from this subnet.
+INFO: Neutron server returns request_ids: [&#39;req-56b86273-cf70-4a8b-9506-8be6ea03fe38&#39;]
+INFO: (os-refresh-config) [ERROR] during post-configure phase. [Command &#39;[&#39;dib-run-parts&#39;, &#39;/usr/libexec/os-refresh-config/post-configure.d&#39;]&#39; returned non-zero exit status 1]
+INFO: (os-refresh-config) [ERROR] Aborting...
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;&lt;sup id=&quot;fnref:1&quot;&gt;&lt;a href=&quot;#fn:1&quot; class=&quot;footnote&quot;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+
+&lt;h4 id=&quot;step-2-forming-a-hypothesis&quot;&gt;Step 2: Forming a hypothesis&lt;/h4&gt;
+
+&lt;p&gt;As we can see, the install aborted in the post-configure phase because we still have ports that have an IP allocation from the subnet that
+needs to be cleaned up. If we can do the clean-up now, then we can move on to re-running the undercloud install.&lt;/p&gt;
+
+&lt;p&gt;Commands like &lt;code class=&quot;highlighter-rouge&quot;&gt;nova list&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;neutron net-list&lt;/code&gt; aren’t responding. This is a problem, since we’ll need Neutron to respond to make the
+calls to clean up its resources. Is it the same problem we encountered before? If it is, then we know that this is because
+Keystone is down or not responding properly. Let’s try running a command to the identity service, like &lt;code class=&quot;highlighter-rouge&quot;&gt;openstack token issue&lt;/code&gt;. We get this error message:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Discovering versions from the identity service failed when creating the password plugin. Attempting to determine version from URL.
+Unable to establish connection to http://192.0.2.1:5000/v2.0/tokens
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;h4 id=&quot;step-3-verifying-the-truth-value-of-this-hypothesis&quot;&gt;Step 3: Verifying the truth value of this hypothesis&lt;/h4&gt;
+
+&lt;p&gt;Before we go any further into the rabbit hole, let’s restart relevant services to ensure that this isn’t the same error as before. Restart&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;sudo systemctl restart rabbitmq-server.service
+sudo systemctl restart httpd.service
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;It’s still not working. Time to take a look at &lt;code class=&quot;highlighter-rouge&quot;&gt;stackrc&lt;/code&gt; to see if we can garner any clues.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;export OS_AUTH_URL=http://192.0.2.1:5000/v2.0/
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;We should check to see if and/or where Keystone is listening.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;netstat -tulpn
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name    
+tcp        0      0 192.168.0.1:5000        0.0.0.0:*               LISTEN     
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;Keystone service is no longer listening at 192.0.2.1. It is listening on 192.168.0.1:5000. To test this, we can poke it to see if it responds:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;[stack@undercloud ~]$ curl 192.168.0.1:5000
+{&quot;versions&quot;: {&quot;values&quot;: [{&quot;status&quot;: &quot;stable&quot;, &quot;updated&quot;: &quot;2016-04-04T00:00:00Z&quot;, &quot;media-types&quot;: [{&quot;base&quot;: &quot;application/json&quot;, &quot;type&quot;: &quot;application/vnd.openstack.identity-v3+json&quot;}], &quot;id&quot;: &quot;v3.6&quot;, &quot;links&quot;: [{&quot;href&quot;: &quot;http://192.168.0.1:5000/v3/&quot;, &quot;rel&quot;: &quot;self&quot;}]}, {&quot;status&quot;: &quot;stable&quot;, &quot;updated&quot;: &quot;2014-04-17T00:00:00Z&quot;, &quot;media-types&quot;: [{&quot;base&quot;: &quot;application/json&quot;, &quot;type&quot;: &quot;application/vnd.openstack.identity-v2.0+json&quot;}], &quot;id&quot;: &quot;v2.0&quot;, &quot;links&quot;: [{&quot;href&quot;: &quot;http://192.168.0.1:5000/v2.0/&quot;, &quot;rel&quot;: &quot;self&quot;}, {&quot;href&quot;: &quot;http://docs.openstack.org/&quot;, &quot;type&quot;: &quot;text/html&quot;, &quot;rel&quot;: &quot;describedby&quot;}]}]}}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;h4 id=&quot;step-4-fixing-the-current-problem&quot;&gt;Step 4: Fixing the [current] problem&lt;/h4&gt;
+
+&lt;p&gt;We have a response from Keystone! It is alive and well, but we haven’t been using the right address. Edit the &lt;code class=&quot;highlighter-rouge&quot;&gt;OS_AUTH_URL&lt;/code&gt; variable
+in stackrc to match the new address. Now, calling &lt;code class=&quot;highlighter-rouge&quot;&gt;openstack token issue&lt;/code&gt; works.&lt;/p&gt;
+
+&lt;h2 id=&quot;continuing-on&quot;&gt;Continuing on&lt;/h2&gt;
+
+&lt;p&gt;The undercloud install is still in a failed state. All we’ve done so far is fix the services that broke as a result of the
+install failing halfway. We still need to clean up and restart the the undercloud install. According to 
+&lt;a href=&quot;https://bugzilla.redhat.com/show_bug.cgi?id=1228862&quot;&gt;this bugzilla&lt;/a&gt;&lt;sup id=&quot;fnref:2&quot;&gt;&lt;a href=&quot;#fn:2&quot; class=&quot;footnote&quot;&gt;2&lt;/a&gt;&lt;/sup&gt;, we have to delete the Neutron resources by hand.&lt;/p&gt;
+
+&lt;p&gt;First, delete all the ports here:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;neutron port-list
+neutron port-delete [port_id]
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;Delete the subnet.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;neutron subnet-list
+neutron subnet-delete [subnet_id]
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;Delete the network itself.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;neutron net-list
+neutron net-delete ctlplane
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;Now, we can re-run &lt;code class=&quot;highlighter-rouge&quot;&gt;openstack undercloud install&lt;/code&gt;. Don’t worry about the fact that we deleted ctlplane; the undercloud install will recreate it for
+us.&lt;/p&gt;
+
+&lt;h2 id=&quot;for-further-reference&quot;&gt;For further reference&lt;/h2&gt;
+
+&lt;p&gt;Quoting the tripleo installation docs&lt;sup id=&quot;fnref:3&quot;&gt;&lt;a href=&quot;#fn:3&quot; class=&quot;footnote&quot;&gt;3&lt;/a&gt;&lt;/sup&gt;, “openstack undercloud install can be rerun to reapply changes from undercloud.conf to the undercloud. 
+Note that this should not be done if an overcloud has already been deployed or is in progress.” This is what I did wrong. While I did not have a
+full-blown overcloud deployed, I did have a node (the FreeIPA one I’ve been working on) sitting on the overcloud, on ctlplane. I &lt;em&gt;think&lt;/em&gt; this is
+what caused the error. Next time, when rerunning the undercloud install, remember to clean up any resources that may cause issues.&lt;/p&gt;
+
+&lt;h2 id=&quot;to-be-continued&quot;&gt;To be continued…&lt;/h2&gt;
+&lt;p&gt;After running the undercloud install (which succeeded, by the way), we came across some strangeness in ironic.&lt;/p&gt;
+
+&lt;h2 id=&quot;footnotes&quot;&gt;Footnotes&lt;/h2&gt;
+
+&lt;div class=&quot;footnotes&quot;&gt;
+  &lt;ol&gt;
+    &lt;li id=&quot;fn:1&quot;&gt;
+      &lt;p&gt;Date and time stamps redacted for brevity. &lt;a href=&quot;#fnref:1&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+    &lt;/li&gt;
+    &lt;li id=&quot;fn:2&quot;&gt;
+      &lt;p&gt;Specifically, comment #9 is helpful to us. The rest of the discussion is still very helpful, however. &lt;a href=&quot;#fnref:2&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+    &lt;/li&gt;
+    &lt;li id=&quot;fn:3&quot;&gt;
+      &lt;p&gt;&lt;a href=&quot;http://docs.openstack.org/developer/tripleo-docs/installation/installation.html&quot;&gt;Tripleo installation docs&lt;/a&gt; &lt;a href=&quot;#fnref:3&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+    &lt;/li&gt;
+  &lt;/ol&gt;
+&lt;/div&gt;
+</description>
+        <pubDate>Tue, 26 Jul 2016 12:01:49 -0400</pubDate>
+        <link>http://resurrexit.github.io/2016/07/26/debugging-failed-undercloud-re-installs.html</link>
+        <guid isPermaLink="true">http://resurrexit.github.io/2016/07/26/debugging-failed-undercloud-re-installs.html</guid>
+        
+        
+      </item>
+    
+      <item>
+        <title>Debugging LDAP-backed domains in Keystone</title>
+        <description>&lt;h2 id=&quot;backstory&quot;&gt;Backstory&lt;/h2&gt;
+
+&lt;p&gt;The story behind this is that I was setting up a system where the FreeIPA&lt;sup id=&quot;fnref:1&quot;&gt;&lt;a href=&quot;#fn:1&quot; class=&quot;footnote&quot;&gt;1&lt;/a&gt;&lt;/sup&gt; server
+is sitting alongside undercloud. The Keystone service for each node in the overcloud
+are pointing to this FreeIPA server (let us call this server &lt;code class=&quot;highlighter-rouge&quot;&gt;identity&lt;/code&gt;). Keystone for
+each node is also configured to use
+&lt;a href=&quot;http://specs.openstack.org/openstack/keystone-specs/api/v3/identity-api-v3.html&quot;&gt;Identity API v3&lt;/a&gt;,
+with a &lt;code class=&quot;highlighter-rouge&quot;&gt;freeipa&lt;/code&gt; domain backed by identity’s LDAP store.&lt;/p&gt;
+
+&lt;p&gt;See &lt;a href=&quot;/2016/06/23/adding-ldap-backing-to-keystone.html&quot;&gt;this&lt;/a&gt; for more information
+on the configuration this is about.&lt;/p&gt;
+
+&lt;h2 id=&quot;problem&quot;&gt;Problem&lt;/h2&gt;
+
+&lt;p&gt;I had everything set up manually, the goal being to eventually modify the
+&lt;a href=&quot;https://github.com/openstack/tripleo-heat-templates&quot;&gt;tripleo-heat-templates&lt;/a&gt; so that one can
+have this system after running tripleo-quickstart, just by setting the right environment variables.&lt;/p&gt;
+
+&lt;p&gt;Of course, something was going wrong. Running &lt;code class=&quot;highlighter-rouge&quot;&gt;openstack user list --domain freeipa&lt;/code&gt; was not returning
+anything, even though I knew I had previously configured Keystone to talk to Identity for all queries
+belonging to the &lt;code class=&quot;highlighter-rouge&quot;&gt;freeipa&lt;/code&gt; domain. &lt;em&gt;Theoretically&lt;/em&gt;, it should have have returned the users I added by
+running &lt;code class=&quot;highlighter-rouge&quot;&gt;ipa user-add&lt;/code&gt; on Identity.&lt;/p&gt;
+
+&lt;h2 id=&quot;debugging&quot;&gt;Debugging&lt;/h2&gt;
+
+&lt;h4 id=&quot;step-1-looking-for-clues&quot;&gt;Step 1: Looking for clues&lt;/h4&gt;
+&lt;p&gt;First, start by looking at &lt;code class=&quot;highlighter-rouge&quot;&gt;keystone.log&lt;/code&gt;, found in &lt;code class=&quot;highlighter-rouge&quot;&gt;/var/log/keystone&lt;/code&gt;. This is the log file for the Keystone
+service that we want to integrate with FreeIPA. See any anomalous messages?&lt;/p&gt;
+
+&lt;p&gt;We can also look at the output from &lt;code class=&quot;highlighter-rouge&quot;&gt;openstack user list --domain heat_stack&lt;/code&gt;. It should look like this (output
+shortened for brevity)&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;+---------+------------------+  
+| ID      | Name             |  
++---------+------------------+  
+| d5...8c | admin            |  
+| 42...f8 | aodh             |  
+| a9...72 | ceilometer       |  
+| b5...77 | glance           |  
+| f5...cd | heat             |  
++---------+------------------+  
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;The &lt;code class=&quot;highlighter-rouge&quot;&gt;heat_stack&lt;/code&gt; domain is not reliant upon &lt;code class=&quot;highlighter-rouge&quot;&gt;freeipa&lt;/code&gt;; it should return something like the above. If it doesn’t,
+your problem is not in your LDAP configuration for Keystone.&lt;sup id=&quot;fnref:2&quot;&gt;&lt;a href=&quot;#fn:2&quot; class=&quot;footnote&quot;&gt;2&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+
+&lt;h5 id=&quot;minor-digression&quot;&gt;&lt;strong&gt;Minor digression&lt;/strong&gt;&lt;/h5&gt;
+&lt;p&gt;In fact, if it lags forever without returning – if all OpenStack services lag without returning, take a closer look
+at Keystone. Run &lt;code class=&quot;highlighter-rouge&quot;&gt;openstack token issue --debug&lt;/code&gt; to examine the kinds of calls it is making. I regret not having
+taken notes on the debugging process of this particular problem (that would have been another post in and of itself),
+but I was seeing errors like so:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Making authentication request to http://192.0.2.1:5000/v2.0/tokens  
+Resetting dropped connection: 192.0.2.1  
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;In my case, restarting rabbitmq.service worked. It was causing Keystone authentication to fail silently, leading to
+all OpenStack services to lag for an eternity (unconfirmed).&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;systemctl restart rabbitmq.service
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;h4 id=&quot;step-2-can-we-reach-our-identity-server&quot;&gt;Step 2: Can we reach our identity server?&lt;/h4&gt;
+&lt;p&gt;There isn’t much that’s useful here. Nothing that will give us a path to start research on. We can start
+by checking to see that running an LDAP query manually works. If it succeeds, we will know that a) identity is
+reachable from our node, and b) LDAP queries against identity work, so it’s not a problem there. You’ll want to
+use this:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;ldapsearch -x -H ldap://warp.lab4.eng.bos.redhat.com -L -b &#39;dc=warp,dc=lab4,dc=eng,dc=bos,dc=redhat,dc=com&#39; &#39;*&#39;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;h4 id=&quot;step-3-collecting-more-information&quot;&gt;Step 3: Collecting more information&lt;/h4&gt;
+&lt;p&gt;In my case, the LDAP query succeeded. Good. Now, we need Keystone to dump more information as it runs. To do this,
+we will enable &lt;code class=&quot;highlighter-rouge&quot;&gt;ldap=DEBUG&lt;/code&gt; in &lt;code class=&quot;highlighter-rouge&quot;&gt;keystone.conf&lt;/code&gt;, which can found under &lt;code class=&quot;highlighter-rouge&quot;&gt;/etc/keystone&lt;/code&gt;.
+Run &lt;code class=&quot;highlighter-rouge&quot;&gt;openstack user list --domain freeipa&lt;/code&gt; again. Assuming you’ve done the configuration for the domain correctly,
+it should attempt an LDAP query against the server indicated in &lt;code class=&quot;highlighter-rouge&quot;&gt;keystone.freeipa.conf&lt;/code&gt;. We examine &lt;code class=&quot;highlighter-rouge&quot;&gt;keystone.log&lt;/code&gt;
+again, to see this:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;2016-06-21 20:20:35.013 1151 DEBUG keystone.common.ldap.core [req-55b9fd81-cc5f-4b29-b237-4e3994d7f0d6 bcdfefb36f44443ca9a8f3cfa445ab40 ec662f250a85453cb40054f3aff49b58 - default default] LDAP search: base=cn=users,cn=accounts,dc=identity,dc=warp,dc=lab4,dc=eng,dc=bos,dc=redhat,dc=com scope=1 filterstr=(&amp;amp;(objectClass=inetOrgPerson)(uid=*)) attrs=[&#39;uid&#39;, &#39;userPassword&#39;, &#39;enabled&#39;, &#39;mail&#39;, &#39;description&#39;] attrsonly=0 search_s /usr/lib/python2.7/site-packages/keystone/common/ldap/core.py:938
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;This is what we want. As we can see, the log has the LDAP query that Keystone is running against
+identity. Note that the LDAP query style in the logs is not the command we will be running manually.
+Compare this&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;LDAP search: base=cn=users,cn=accounts,dc=identity,dc=warp,dc=lab4,dc=eng,dc=bos,dc=redhat,dc=com scope=1 filterstr=(&amp;amp;(objectClass=inetOrgPerson)(uid=*)) attrs=[&#39;uid&#39;, &#39;userPassword&#39;, &#39;enabled&#39;, &#39;mail&#39;, &#39;description&#39;] 
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;versus this&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;ldapsearch -x -H ldap://identity.warp.lab4.eng.bos.redhat.com -L -b &#39;cn=users,cn=accounts,dc=warp,dc=lab4,dc=eng,dc=bos,dc=redhat,dc=com&#39; &#39;(&amp;amp;(objectClass=inetOrgPerson)(uid=*))&#39; &#39;uid&#39;, &#39;userPassword&#39;, &#39;enabled&#39;, &#39;mail&#39;, &#39;description&#39;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;h4 id=&quot;step-4-experimenting-to-find-the-problem&quot;&gt;Step 4: Experimenting to find the problem&lt;/h4&gt;
+&lt;p&gt;Convert the LDAP search in the logs to a CLI-style call. Run it, and if it fails, play around with the LDAP query until it works. Look at the format of the kinds of queries that fail and the formats of the kind that succeed. That
+should give you pointers to what you have wrong in your &lt;code class=&quot;highlighter-rouge&quot;&gt;/etc/keystone/domains/keystone.DOMAIN.conf&lt;/code&gt; file. If we’ve gotten this far, we know that we have the configuration for multiple domains in &lt;code class=&quot;highlighter-rouge&quot;&gt;/etc/keystone/keystone.conf&lt;/code&gt;
+working. Once you’ve found the problem, update the file and restart httpd to pick up the changes with &lt;code class=&quot;highlighter-rouge&quot;&gt;systemctl restart httpd.service&lt;/code&gt;. From here, run commands against the FreeIPA domain to make sure Keystone is pointing there.&lt;/p&gt;
+
+&lt;h2 id=&quot;keep-in-mind&quot;&gt;Keep in mind&lt;/h2&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;
+    &lt;p&gt;The command &lt;code class=&quot;highlighter-rouge&quot;&gt;openstack user list&lt;/code&gt; behaves oddly when the Identity API version is set to be 3. It gives us the list of all the users
+in the ‘Default’ domain. In API version 2, the very same command will give us a list of all the users. If you want the list of all
+the users in a certain domain, you must specify it using the &lt;code class=&quot;highlighter-rouge&quot;&gt;--domain&lt;/code&gt; option, whether it be the domain ID or the domain name.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;In addition to this: do not add users via Keystone and LDAP. I repeat: &lt;strong&gt;do not&lt;/strong&gt; add your users by running
+&lt;code class=&quot;highlighter-rouge&quot;&gt;openstack user create&lt;/code&gt;. Odds are, if you are looking into setting this up, it is because you (or your
+users) want your FreeIPA integrated with Keystone for a reason. Whatever it is, users created via &lt;code class=&quot;highlighter-rouge&quot;&gt;openstack
+user create&lt;/code&gt; will not be well formed. FreeIPA is very particular about the way user records are formatted.
+Keystone &lt;em&gt;does not&lt;/em&gt; have knowledge on how to do this in a way that will make FreeIPA happy.
+As if that weren’t reason enough, Keystone will be writing to the LDAP database if you do this.&lt;sup id=&quot;fnref:3&quot;&gt;&lt;a href=&quot;#fn:3&quot; class=&quot;footnote&quot;&gt;3&lt;/a&gt;&lt;/sup&gt; This is &lt;strong&gt;wrong&lt;/strong&gt;, because the
+LDAP store is not managed by Keystone. For this reason, Keystone &lt;em&gt;should&lt;/em&gt; only have read-only LDAP backends.&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;footnotes&quot;&gt;Footnotes&lt;/h2&gt;
+&lt;div class=&quot;footnotes&quot;&gt;
+  &lt;ol&gt;
+    &lt;li id=&quot;fn:1&quot;&gt;
+      &lt;p&gt;FreeIPA is an identity management suite for Linux/Unix systems. &lt;a href=&quot;#fnref:1&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+    &lt;/li&gt;
+    &lt;li id=&quot;fn:2&quot;&gt;
+      &lt;p&gt;&lt;em&gt;Probably&lt;/em&gt; is not your problem. I reserve the right to be wrong. &lt;a href=&quot;#fnref:2&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+    &lt;/li&gt;
+    &lt;li id=&quot;fn:3&quot;&gt;
+      &lt;p&gt;I know that LDAP is a protocol and not a database. Don’t kill me. I’m using the term liberally to mean the LDAP-style database. In FreeIPA, the implementation we are using is 389 Directory Server, which is backed by Berkeley DB. &lt;a href=&quot;#fnref:3&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+    &lt;/li&gt;
+  &lt;/ol&gt;
+&lt;/div&gt;
+</description>
+        <pubDate>Wed, 06 Jul 2016 17:30:28 -0400</pubDate>
+        <link>http://resurrexit.github.io/2016/07/06/debugging-ldap-backed-domains-in-keystone.html</link>
+        <guid isPermaLink="true">http://resurrexit.github.io/2016/07/06/debugging-ldap-backed-domains-in-keystone.html</guid>
+        
+        
+      </item>
     
       <item>
         <title>Using Tripleo-quickstart for a working OpenStack install</title>
@@ -58,7 +372,7 @@ Instead, we are &lt;em&gt;trying&lt;/em&gt; to use tripleo-quickstart with patch
 &lt;div class=&quot;footnotes&quot;&gt;
   &lt;ol&gt;
     &lt;li id=&quot;fn:1&quot;&gt;
-      &lt;p&gt;Much like tripleo-quickstart, Ossipee is a project meant to build a small OpenStack cluster, using a PackStack install. Ossipee predates tripleo-quickstart. That leads me to PackStack: PackStack uses Puppet to configure and installs everything via RPMs. Compare that with Devstack, which uses git checkouts and shell scripts to install everything needed for OpenStack. &lt;a href=&quot;#fnref:1&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+      &lt;p&gt;Much like tripleo-quickstart, Ossipee is a project meant to build a small OpenStack cluster, using a PackStack install. Ossipee predates tripleo-quickstart. That leads me to PackStack: PackStack is a command line utility using Puppet modules to configure and installs everything via RPMs. PackStack is for existing servers. Compare that with Devstack, which uses git checkouts and shell scripts to install everything needed for OpenStack. &lt;a href=&quot;#fnref:1&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
     &lt;/li&gt;
   &lt;/ol&gt;
 &lt;/div&gt;

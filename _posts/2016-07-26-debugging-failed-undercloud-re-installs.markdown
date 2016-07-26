@@ -8,16 +8,15 @@ Introduction
 ------------
 
 I am in the process of writing a Heat template that creates and provisions a FreeIPA server.
-The Heat template uses an OS::Heat::SoftwareConfig encapsulating a bash script to prepare for,
-install, and configure FreeIPA. When the VM reaches the step of running `ipa-server-install`, it
-fails with:
+The Heat template uses an OS::Heat::SoftwareConfig encapsulating a bash script to install and
+configure FreeIPA. When the VM starts to run `ipa-server-install`, it fails with:
 
 ```
-2016-07-20T14:23:12Z WARNING Invalid IP address 192.0.2.19 for identity.warp.lab4.eng.bos.redhat.com: cannot use IANA reserved IP address
+WARNING Invalid IP address 192.0.2.19 for identity.warp.lab4.eng.bos.redhat.com: cannot use IANA reserved IP address
 ```
 
-It turns out that this is not a problem with my script, but rather a problem with the IP range that
-tripleo-quickstart uses by default for the undercloud. The block `192.0.2.0/24` has been
+It turns out that this is not a problem with my script, but rather, a problem with the IP range that
+tripleo-quickstart defaults to for the undercloud. The block `192.0.2.0/24` has been
 assigned for use in documentation and example code only. See [here](https://tools.ietf.org/html/rfc5735)
 for more details.
 
@@ -62,7 +61,7 @@ INFO: (os-refresh-config) [ERROR] Aborting...
 #### Step 2: Forming a hypothesis
 
 As we can see, the install aborted in the post-configure phase because we still have ports that have an IP allocation from the subnet that
-needs to be cleaned up. If we can do the clean-up now, then we can move on to re-running the undercloud install.
+needs to be cleaned up. 
 
 Commands like `nova list` and `neutron net-list` aren't responding. This is a problem, since we'll need Neutron to respond. Is it the same
 problem we encountered before? If it is, then we know that this is because Keystone is down or not responding properly. Let's try running a
@@ -112,8 +111,8 @@ in stackrc to match the new address. Now, calling `openstack token issue` works.
 Continuing on
 -------------
 
-The undercloud install is still in a failed state. All we've done so far is fix the services that broke as a result of the
-install failing halfway. We still need to clean up and restart the the undercloud install. According to 
+The undercloud install is still in a failed state. All we've done so far is fix the services that broke (as a result of the
+install failing halfway). We still need to clean up and restart the install. According to 
 [this bugzilla](https://bugzilla.redhat.com/show_bug.cgi?id=1228862)[^2], we have to delete the Neutron resources by hand.
 
 First, delete all the ports here:
@@ -144,15 +143,15 @@ For further reference
 ---------------------
 
 Quoting the tripleo installation docs[^3], "openstack undercloud install can be rerun to reapply changes from undercloud.conf to the undercloud. 
-Note that this should not be done if an overcloud has already been deployed or is in progress." This is what I did wrong. While I did not have a
-full-blown overcloud deployed, I did have a node (the FreeIPA one I've been working on) sitting on the overcloud, on ctlplane. I _think_ this is
-what caused the error. Next time, when rerunning the undercloud install, remember to clean up any resources that may cause issues.
+Note that this should not be done if an overcloud has already been deployed or is in progress."
+
+This is what I did wrong. While I did not have a full-blown overcloud deployed, I did have a node (the FreeIPA one) sitting on the overcloud, attached to ctlplane. I _think_ this is
+what caused the error. Next time, when rerunning the undercloud install, remember to clean up any resources that may cause issues _first_.
 
 To be continued...
 ------------------
 After running the undercloud install (which succeeded, by the way), we came across some strangeness in ironic. There will be an upcoming post on
 the issues we've seen.
-
 
 Footnotes
 ---------
