@@ -6,9 +6,176 @@
 </description>
     <link>http://resurrexit.github.io/</link>
     <atom:link href="http://resurrexit.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Wed, 06 Jul 2016 17:40:57 -0400</pubDate>
-    <lastBuildDate>Wed, 06 Jul 2016 17:40:57 -0400</lastBuildDate>
+    <pubDate>Tue, 26 Jul 2016 12:15:15 -0400</pubDate>
+    <lastBuildDate>Tue, 26 Jul 2016 12:15:15 -0400</lastBuildDate>
     <generator>Jekyll v3.1.6</generator>
+    
+      <item>
+        <title>Debugging failed undercloud (re)installs</title>
+        <description>&lt;h2 id=&quot;introduction&quot;&gt;Introduction&lt;/h2&gt;
+
+&lt;p&gt;I am in the process of writing a Heat template that creates and provisions a FreeIPA server.
+The Heat template uses an OS::Heat::SoftwareConfig encapsulating a bash script to prepare for,
+install, and configure FreeIPA. When the VM reaches the step of running &lt;code class=&quot;highlighter-rouge&quot;&gt;ipa-server-install&lt;/code&gt;, it
+fails with:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;2016-07-20T14:23:12Z WARNING Invalid IP address 192.0.2.19 for identity.warp.lab4.eng.bos.redhat.com: cannot use IANA reserved IP address
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;It turns out that this is not a problem with my script, but rather a problem with the IP range that
+tripleo-quickstart uses by default for the undercloud. The block &lt;code class=&quot;highlighter-rouge&quot;&gt;192.0.2.0/24&lt;/code&gt; has been
+assigned for use in documentation and example code only. See &lt;a href=&quot;https://tools.ietf.org/html/rfc5735&quot;&gt;here&lt;/a&gt;
+for more details.&lt;/p&gt;
+
+&lt;p&gt;FreeIPA doesn’t accept IP addresses in that range. As such, we need to re-install our undercloud with
+a different block. In fact, Juan Osorio has been trying to get this &lt;a href=&quot;https://review.openstack.org/#/c/343443/&quot;&gt;patch&lt;/a&gt; in.&lt;/p&gt;
+
+&lt;h2 id=&quot;problem&quot;&gt;Problem&lt;/h2&gt;
+
+&lt;p&gt;First, we’ll generate a new &lt;code class=&quot;highlighter-rouge&quot;&gt;undercloud.conf&lt;/code&gt; using &lt;a href=&quot;http://ucw-bnemec.rhcloud.com/&quot;&gt;this&lt;/a&gt;. It’s not
+quite as simple as editing &lt;code class=&quot;highlighter-rouge&quot;&gt;network_cidr&lt;/code&gt; in the configuration file, as all the network settings need
+to match up. The tool I’m linking to is a helpful way to ensure that they are valid.&lt;/p&gt;
+
+&lt;p&gt;Because I was unaware that one had to clean up the neutron resources before re-installing, I ran
+&lt;code class=&quot;highlighter-rouge&quot;&gt;openstack undercloud install&lt;/code&gt; after I put my new &lt;code class=&quot;highlighter-rouge&quot;&gt;undercloud.conf&lt;/code&gt; in the home directory. The install
+fails.&lt;/p&gt;
+
+&lt;h2 id=&quot;debugging&quot;&gt;Debugging&lt;/h2&gt;
+
+&lt;h4 id=&quot;step-1-information-gathering&quot;&gt;Step 1: Information gathering&lt;/h4&gt;
+
+&lt;p&gt;The error log for the install can be found in &lt;code class=&quot;highlighter-rouge&quot;&gt;$HOME/.instack/install-undercloud.log&lt;/code&gt;. Let’s scroll down. We see error messages that look like
+this:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;New cidr 192.168.0.0/24 does not equal old cidr 192.0.2.0/24
+INFO: + echo &#39;Will attempt to delete and recreate subnet 45e7fc6b-aa7c-4cf7-b191-fd475cf81e02&#39;
+INFO: Will attempt to delete and recreate subnet 45e7fc6b-aa7c-4cf7-b191-fd475cf81e02
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;and subsequently&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;INFO: Unable to complete operation on subnet 45e7fc6b-aa7c-4cf7-b191-fd475cf81e02: One or more ports have an IP allocation from this subnet.
+INFO: Neutron server returns request_ids: [&#39;req-56b86273-cf70-4a8b-9506-8be6ea03fe38&#39;]
+INFO: (os-refresh-config) [ERROR] during post-configure phase. [Command &#39;[&#39;dib-run-parts&#39;, &#39;/usr/libexec/os-refresh-config/post-configure.d&#39;]&#39; returned non-zero exit status 1]
+INFO: (os-refresh-config) [ERROR] Aborting...
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;&lt;sup id=&quot;fnref:1&quot;&gt;&lt;a href=&quot;#fn:1&quot; class=&quot;footnote&quot;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+
+&lt;h4 id=&quot;step-2-forming-a-hypothesis&quot;&gt;Step 2: Forming a hypothesis&lt;/h4&gt;
+
+&lt;p&gt;As we can see, the install aborted in the post-configure phase because we still have ports that have an IP allocation from the subnet that
+needs to be cleaned up. If we can do the clean-up now, then we can move on to re-running the undercloud install.&lt;/p&gt;
+
+&lt;p&gt;Commands like &lt;code class=&quot;highlighter-rouge&quot;&gt;nova list&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;neutron net-list&lt;/code&gt; aren’t responding. This is a problem, since we’ll need Neutron to respond to make the
+calls to clean up its resources. Is it the same problem we encountered before? If it is, then we know that this is because
+Keystone is down or not responding properly. Let’s try running a command to the identity service, like &lt;code class=&quot;highlighter-rouge&quot;&gt;openstack token issue&lt;/code&gt;. We get this error message:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Discovering versions from the identity service failed when creating the password plugin. Attempting to determine version from URL.
+Unable to establish connection to http://192.0.2.1:5000/v2.0/tokens
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;h4 id=&quot;step-3-verifying-the-truth-value-of-this-hypothesis&quot;&gt;Step 3: Verifying the truth value of this hypothesis&lt;/h4&gt;
+
+&lt;p&gt;Before we go any further into the rabbit hole, let’s restart relevant services to ensure that this isn’t the same error as before. Restart&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;sudo systemctl restart rabbitmq-server.service
+sudo systemctl restart httpd.service
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;It’s still not working. Time to take a look at &lt;code class=&quot;highlighter-rouge&quot;&gt;stackrc&lt;/code&gt; to see if we can garner any clues.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;export OS_AUTH_URL=http://192.0.2.1:5000/v2.0/
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;We should check to see if and/or where Keystone is listening.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;netstat -tulpn
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name    
+tcp        0      0 192.168.0.1:5000        0.0.0.0:*               LISTEN     
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;Keystone service is no longer listening at 192.0.2.1. It is listening on 192.168.0.1:5000. To test this, we can poke it to see if it responds:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;[stack@undercloud ~]$ curl 192.168.0.1:5000
+{&quot;versions&quot;: {&quot;values&quot;: [{&quot;status&quot;: &quot;stable&quot;, &quot;updated&quot;: &quot;2016-04-04T00:00:00Z&quot;, &quot;media-types&quot;: [{&quot;base&quot;: &quot;application/json&quot;, &quot;type&quot;: &quot;application/vnd.openstack.identity-v3+json&quot;}], &quot;id&quot;: &quot;v3.6&quot;, &quot;links&quot;: [{&quot;href&quot;: &quot;http://192.168.0.1:5000/v3/&quot;, &quot;rel&quot;: &quot;self&quot;}]}, {&quot;status&quot;: &quot;stable&quot;, &quot;updated&quot;: &quot;2014-04-17T00:00:00Z&quot;, &quot;media-types&quot;: [{&quot;base&quot;: &quot;application/json&quot;, &quot;type&quot;: &quot;application/vnd.openstack.identity-v2.0+json&quot;}], &quot;id&quot;: &quot;v2.0&quot;, &quot;links&quot;: [{&quot;href&quot;: &quot;http://192.168.0.1:5000/v2.0/&quot;, &quot;rel&quot;: &quot;self&quot;}, {&quot;href&quot;: &quot;http://docs.openstack.org/&quot;, &quot;type&quot;: &quot;text/html&quot;, &quot;rel&quot;: &quot;describedby&quot;}]}]}}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;h4 id=&quot;step-4-fixing-the-current-problem&quot;&gt;Step 4: Fixing the [current] problem&lt;/h4&gt;
+
+&lt;p&gt;We have a response from Keystone! It is alive and well, but we haven’t been using the right address. Edit the &lt;code class=&quot;highlighter-rouge&quot;&gt;OS_AUTH_URL&lt;/code&gt; variable
+in stackrc to match the new address. Now, calling &lt;code class=&quot;highlighter-rouge&quot;&gt;openstack token issue&lt;/code&gt; works.&lt;/p&gt;
+
+&lt;h2 id=&quot;continuing-on&quot;&gt;Continuing on&lt;/h2&gt;
+
+&lt;p&gt;The undercloud install is still in a failed state. All we’ve done so far is fix the services that broke as a result of the
+install failing halfway. We still need to clean up and restart the the undercloud install. According to 
+&lt;a href=&quot;https://bugzilla.redhat.com/show_bug.cgi?id=1228862&quot;&gt;this bugzilla&lt;/a&gt;&lt;sup id=&quot;fnref:2&quot;&gt;&lt;a href=&quot;#fn:2&quot; class=&quot;footnote&quot;&gt;2&lt;/a&gt;&lt;/sup&gt;, we have to delete the Neutron resources by hand.&lt;/p&gt;
+
+&lt;p&gt;First, delete all the ports here:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;neutron port-list
+neutron port-delete [port_id]
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;Delete the subnet.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;neutron subnet-list
+neutron subnet-delete [subnet_id]
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;Delete the network itself.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;neutron net-list
+neutron net-delete ctlplane
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;Now, we can re-run &lt;code class=&quot;highlighter-rouge&quot;&gt;openstack undercloud install&lt;/code&gt;. Don’t worry about the fact that we deleted ctlplane; the undercloud install will recreate it for
+us.&lt;/p&gt;
+
+&lt;h2 id=&quot;for-further-reference&quot;&gt;For further reference&lt;/h2&gt;
+
+&lt;p&gt;Quoting the tripleo installation docs&lt;sup id=&quot;fnref:3&quot;&gt;&lt;a href=&quot;#fn:3&quot; class=&quot;footnote&quot;&gt;3&lt;/a&gt;&lt;/sup&gt;, “openstack undercloud install can be rerun to reapply changes from undercloud.conf to the undercloud. 
+Note that this should not be done if an overcloud has already been deployed or is in progress.” This is what I did wrong. While I did not have a
+full-blown overcloud deployed, I did have a node (the FreeIPA one I’ve been working on) sitting on the overcloud, on ctlplane. I &lt;em&gt;think&lt;/em&gt; this is
+what caused the error. Next time, when rerunning the undercloud install, remember to clean up any resources that may cause issues.&lt;/p&gt;
+
+&lt;h2 id=&quot;to-be-continued&quot;&gt;To be continued…&lt;/h2&gt;
+&lt;p&gt;After running the undercloud install (which succeeded, by the way), we came across some strangeness in ironic.&lt;/p&gt;
+
+&lt;h2 id=&quot;footnotes&quot;&gt;Footnotes&lt;/h2&gt;
+
+&lt;div class=&quot;footnotes&quot;&gt;
+  &lt;ol&gt;
+    &lt;li id=&quot;fn:1&quot;&gt;
+      &lt;p&gt;Date and time stamps redacted for brevity. &lt;a href=&quot;#fnref:1&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+    &lt;/li&gt;
+    &lt;li id=&quot;fn:2&quot;&gt;
+      &lt;p&gt;Specifically, comment #9 is helpful to us. The rest of the discussion is still very helpful, however. &lt;a href=&quot;#fnref:2&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+    &lt;/li&gt;
+    &lt;li id=&quot;fn:3&quot;&gt;
+      &lt;p&gt;&lt;a href=&quot;http://docs.openstack.org/developer/tripleo-docs/installation/installation.html&quot;&gt;Tripleo installation docs&lt;/a&gt; &lt;a href=&quot;#fnref:3&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+    &lt;/li&gt;
+  &lt;/ol&gt;
+&lt;/div&gt;
+</description>
+        <pubDate>Tue, 26 Jul 2016 12:01:49 -0400</pubDate>
+        <link>http://resurrexit.github.io/2016/07/26/debugging-failed-undercloud-re-installs.html</link>
+        <guid isPermaLink="true">http://resurrexit.github.io/2016/07/26/debugging-failed-undercloud-re-installs.html</guid>
+        
+        
+      </item>
     
       <item>
         <title>Debugging LDAP-backed domains in Keystone</title>
