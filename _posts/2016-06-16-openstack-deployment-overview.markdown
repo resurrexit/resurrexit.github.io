@@ -32,7 +32,7 @@ images, while Neutron is in charge of network connectivity. For all OpenStack se
 have Keystone for authentication and authorization, and Horizon is a modular web-based interface
 built with Django. Ironic is for OpenStack bare metal provisioning, and so on.
 
-![OpenStack services diagram](http://docs.openstack.org/security-guide/_images/marketecture-diagram.png)
+{% img left /assets/images/marketecture-diagram.png 'openstack diagram' %}
 [Image source](http://docs.openstack.org/security-guide/introduction/introduction-to-openstack.html)
 
 See [README](http://docs.openstack.org/developer/tripleo-incubator/README.html)
