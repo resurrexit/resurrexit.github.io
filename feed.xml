@@ -6,9 +6,90 @@
 </description>
     <link>http://resurrexit.github.io/</link>
     <atom:link href="http://resurrexit.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Tue, 26 Jul 2016 15:38:51 -0400</pubDate>
-    <lastBuildDate>Tue, 26 Jul 2016 15:38:51 -0400</lastBuildDate>
+    <pubDate>Fri, 29 Jul 2016 15:20:23 -0400</pubDate>
+    <lastBuildDate>Fri, 29 Jul 2016 15:20:23 -0400</lastBuildDate>
     <generator>Jekyll v3.1.6</generator>
+    
+      <item>
+        <title>Using Heat to deploy a FreeIPA server</title>
+        <description>&lt;h2 id=&quot;disclaimerentreaty&quot;&gt;Disclaimer/Entreaty&lt;/h2&gt;
+
+&lt;p&gt;If you see any technical errors or have any constructive criticism on how to improve the
+template, &lt;em&gt;please&lt;/em&gt; contact me!&lt;/p&gt;
+
+&lt;h2 id=&quot;preparation&quot;&gt;Preparation&lt;/h2&gt;
+
+&lt;p&gt;I’ve been working on a Heat template to provision a FreeIPA server. It is meant
+to work alongside a &lt;a href=&quot;https://github.com/openstack/tripleo-quickstart&quot;&gt;tripleo-quickstart&lt;/a&gt;
+deploy.&lt;/p&gt;
+
+&lt;h4 id=&quot;change-the-default-ip-block-the-undercloud-uses&quot;&gt;Change the default IP block the undercloud uses&lt;/h4&gt;
+
+&lt;p&gt;In the previous post, I described debugging the problem caused by tripleo-quickstart’s
+choice of default IP block. Change it using
+&lt;a href=&quot;/2016/07/26/debugging-failed-undercloud-re-installs.html&quot;&gt;this&lt;/a&gt;.&lt;/p&gt;
+
+&lt;h4 id=&quot;ironic-node-creation&quot;&gt;Ironic node creation&lt;/h4&gt;
+
+&lt;p&gt;This solution does not create new Ironic nodes. So, if you already have deployed
+your overcloud – you’ll need a free Ironic node. We could create a new one manually,
+like what Lars Kellogg-Stedman describes
+&lt;a href=&quot;http://blog.oddbit.com/2016/05/19/connecting-another-vm-to-your-tripleo-qu/&quot;&gt;here&lt;/a&gt;.&lt;/p&gt;
+
+&lt;h4 id=&quot;setting-dns-server-for-the-subnet&quot;&gt;Setting DNS server for the subnet&lt;/h4&gt;
+
+&lt;p&gt;Depending on the network the VM is going to be attaching to, we may need to set the
+DNS server for the subnet. Personally, I haven’t found this to work (hence the hacky
+solution of appending an &lt;code class=&quot;highlighter-rouge&quot;&gt;echo &#39;nameserver 8.8.8.8&#39;&lt;/code&gt; to &lt;code class=&quot;highlighter-rouge&quot;&gt;/etc/resolv.conf&lt;/code&gt;). If anyone
+has any suggestions on how to get DNS working in a better way, please send me an email!&lt;/p&gt;
+
+&lt;p&gt;I have tried this:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;. ./stackrc  
+neutron subnet-list  
+neutron subnet-update &amp;lt;subnet_uuid&amp;gt; dns-nameserver=8.8.8.8  
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;but alas, it doesn’t work as far as I can tell.&lt;/p&gt;
+
+&lt;h2 id=&quot;freeipa-vm-creation&quot;&gt;FreeIPA VM creation&lt;/h2&gt;
+
+&lt;h4 id=&quot;heat-stack-creation&quot;&gt;Heat stack creation&lt;/h4&gt;
+
+&lt;p&gt;Now that we have an Ironic node to deploy our Heat template on, let’s get started. Clone
+&lt;a href=&quot;https://github.com/resurrexit/freeipa-heat-template&quot;&gt;this repo&lt;/a&gt; and tell Heat to create
+a stack using the template:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;git clone https://github.com/resurrexit/freeipa-heat-template
+heat stack-create --template freeipa_server.yaml
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;h4 id=&quot;passing-in-parameters&quot;&gt;Passing in parameters&lt;/h4&gt;
+
+&lt;p&gt;All parameters in the template have defaults based on tripleo-quickstart.
+Pass in parameters as needed with something like &lt;code class=&quot;highlighter-rouge&quot;&gt;-p DNSNameserver=8.8.8.8&lt;/code&gt; &lt;em&gt;or&lt;/em&gt; by using
+an environment file.&lt;sup id=&quot;fnref:1&quot;&gt;&lt;a href=&quot;#fn:1&quot; class=&quot;footnote&quot;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+
+&lt;p&gt;After cloud-init completes, you should have a working FreeIPA server!&lt;/p&gt;
+
+&lt;h2 id=&quot;footnotes&quot;&gt;Footnotes&lt;/h2&gt;
+
+&lt;div class=&quot;footnotes&quot;&gt;
+  &lt;ol&gt;
+    &lt;li id=&quot;fn:1&quot;&gt;
+      &lt;p&gt;&lt;a href=&quot;http://blog.oddbit.com/2013/12/06/an-introduction-to-openstack-heat/&quot;&gt;An Introduction to OpenStack Heat&lt;/a&gt; &lt;a href=&quot;#fnref:1&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+    &lt;/li&gt;
+  &lt;/ol&gt;
+&lt;/div&gt;
+</description>
+        <pubDate>Fri, 29 Jul 2016 15:12:10 -0400</pubDate>
+        <link>http://resurrexit.github.io/2016/07/29/using-heat-to-deploy-a-freeipa-server.html</link>
+        <guid isPermaLink="true">http://resurrexit.github.io/2016/07/29/using-heat-to-deploy-a-freeipa-server.html</guid>
+        
+        
+      </item>
     
       <item>
         <title>Debugging failed undercloud (re)installs</title>
