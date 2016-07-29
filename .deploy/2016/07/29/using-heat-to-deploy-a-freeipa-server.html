@@ -6,12 +6,11 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>coding until the tea hours of dawn</title>
-  <meta name="description" content="A blog about computers and tea.
-">
+  <title>Using Heat to deploy a FreeIPA server</title>
+  <meta name="description" content="Disclaimer/Entreaty">
 
   <link rel="stylesheet" href="/css/main.css">
-  <link rel="canonical" href="http://resurrexit.github.io/">
+  <link rel="canonical" href="http://resurrexit.github.io/2016/07/29/using-heat-to-deploy-a-freeipa-server.html">
   <link rel="alternate" type="application/rss+xml" title="coding until the tea hours of dawn" href="http://resurrexit.github.io/feed.xml">
 </head>
 
@@ -55,73 +54,89 @@
 
     <div class="page-content">
       <div class="wrapper">
-        <div class="home">
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
 
-  <h1 class="page-heading">Posts</h1>
+  <header class="post-header">
+    <h1 class="post-title" itemprop="name headline">Using Heat to deploy a FreeIPA server</h1>
+    <p class="post-meta"><time datetime="2016-07-29T15:12:10-04:00" itemprop="datePublished">Jul 29, 2016</time></p>
+  </header>
 
-  <ul class="post-list">
-    
-      <li>
-        <span class="post-meta">Jul 29, 2016</span>
+  <div class="post-content" itemprop="articleBody">
+    <h2 id="disclaimerentreaty">Disclaimer/Entreaty</h2>
 
-        <h2>
-          <a class="post-link" href="/2016/07/29/using-heat-to-deploy-a-freeipa-server.html">Using Heat to deploy a FreeIPA server</a>
-        </h2>
-      </li>
-    
-      <li>
-        <span class="post-meta">Jul 26, 2016</span>
+<p>If you see any technical errors or have any constructive criticism on how to improve the
+template, <em>please</em> contact me!</p>
 
-        <h2>
-          <a class="post-link" href="/2016/07/26/debugging-failed-undercloud-re-installs.html">Debugging failed undercloud (re)installs</a>
-        </h2>
-      </li>
-    
-      <li>
-        <span class="post-meta">Jul 6, 2016</span>
+<h2 id="preparation">Preparation</h2>
 
-        <h2>
-          <a class="post-link" href="/2016/07/06/debugging-ldap-backed-domains-in-keystone.html">Debugging LDAP-backed domains in Keystone</a>
-        </h2>
-      </li>
-    
-      <li>
-        <span class="post-meta">Jun 30, 2016</span>
+<p>I’ve been working on a Heat template to provision a FreeIPA server. It is meant
+to work alongside a <a href="https://github.com/openstack/tripleo-quickstart">tripleo-quickstart</a>
+deploy.</p>
 
-        <h2>
-          <a class="post-link" href="/2016/06/30/using-tripleo-quickstart-to-get-a-working-openstack-install.html">Using Tripleo-quickstart for a working OpenStack install</a>
-        </h2>
-      </li>
-    
-      <li>
-        <span class="post-meta">Jun 23, 2016</span>
+<h4 id="change-the-default-ip-block-the-undercloud-uses">Change the default IP block the undercloud uses</h4>
 
-        <h2>
-          <a class="post-link" href="/2016/06/23/adding-ldap-backing-to-keystone.html">Adding LDAP backing to specific domains in Keystone</a>
-        </h2>
-      </li>
-    
-      <li>
-        <span class="post-meta">Jun 16, 2016</span>
+<p>In the previous post, I described debugging the problem caused by tripleo-quickstart’s
+choice of default IP block. Change it using
+<a href="/2016/07/26/debugging-failed-undercloud-re-installs.html">this</a>.</p>
 
-        <h2>
-          <a class="post-link" href="/2016/06/16/openstack-deployment-overview.html">From my notes: OpenStack deployment overview</a>
-        </h2>
-      </li>
-    
-      <li>
-        <span class="post-meta">Jun 7, 2016</span>
+<h4 id="ironic-node-creation">Ironic node creation</h4>
 
-        <h2>
-          <a class="post-link" href="/2016/06/07/hello-world.html">Hello World</a>
-        </h2>
-      </li>
-    
-  </ul>
+<p>This solution does not create new Ironic nodes. So, if you already have deployed
+your overcloud – you’ll need a free Ironic node. We could create a new one manually,
+like what Lars Kellogg-Stedman describes
+<a href="http://blog.oddbit.com/2016/05/19/connecting-another-vm-to-your-tripleo-qu/">here</a>.</p>
 
-  <p class="rss-subscribe">subscribe <a href="/feed.xml">via RSS</a></p>
+<h4 id="setting-dns-server-for-the-subnet">Setting DNS server for the subnet</h4>
 
+<p>Depending on the network the VM is going to be attaching to, we may need to set the
+DNS server for the subnet. Personally, I haven’t found this to work (hence the hacky
+solution of appending an <code class="highlighter-rouge">echo 'nameserver 8.8.8.8'</code> to <code class="highlighter-rouge">/etc/resolv.conf</code>). If anyone
+has any suggestions on how to get DNS working in a better way, please send me an email!</p>
+
+<p>I have tried this:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>. ./stackrc  
+neutron subnet-list  
+neutron subnet-update &lt;subnet_uuid&gt; dns-nameserver=8.8.8.8  
+</code></pre>
 </div>
+
+<p>but alas, it doesn’t work as far as I can tell.</p>
+
+<h2 id="freeipa-vm-creation">FreeIPA VM creation</h2>
+
+<h4 id="heat-stack-creation">Heat stack creation</h4>
+
+<p>Now that we have an Ironic node to deploy our Heat template on, let’s get started. Clone
+<a href="https://github.com/resurrexit/freeipa-heat-template">this repo</a> and tell Heat to create
+a stack using the template:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>git clone https://github.com/resurrexit/freeipa-heat-template
+heat stack-create --template freeipa_server.yaml
+</code></pre>
+</div>
+
+<h4 id="passing-in-parameters">Passing in parameters</h4>
+
+<p>All parameters in the template have defaults based on tripleo-quickstart.
+Pass in parameters as needed with something like <code class="highlighter-rouge">-p DNSNameserver=8.8.8.8</code> <em>or</em> by using
+an environment file.<sup id="fnref:1"><a href="#fn:1" class="footnote">1</a></sup></p>
+
+<p>After cloud-init completes, you should have a working FreeIPA server!</p>
+
+<h2 id="footnotes">Footnotes</h2>
+
+<div class="footnotes">
+  <ol>
+    <li id="fn:1">
+      <p><a href="http://blog.oddbit.com/2013/12/06/an-introduction-to-openstack-heat/">An Introduction to OpenStack Heat</a> <a href="#fnref:1" class="reversefootnote">&#8617;</a></p>
+    </li>
+  </ol>
+</div>
+
+  </div>
+
+</article>
 
       </div>
     </div>

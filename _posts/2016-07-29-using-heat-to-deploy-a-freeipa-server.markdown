@@ -8,7 +8,7 @@ Disclaimer/Entreaty
 -------------------
 
 If you see any technical errors or have any constructive criticism on how to improve the
-template, _please_ contact me!
+template, _please_ contact me![^1]
 
 Preparation
 ------------
@@ -65,11 +65,11 @@ heat stack-create --template freeipa_server.yaml
 
 All parameters in the template have defaults based on tripleo-quickstart.
 Pass in parameters as needed with something like `-p DNSNameserver=8.8.8.8` _or_ by using
-an environment file.[^1]
+an environment file.[^2]
 
 After cloud-init completes, you should have a working FreeIPA server!
 
 Footnotes
 ---------
-
-[^1]: [An Introduction to OpenStack Heat](http://blog.oddbit.com/2013/12/06/an-introduction-to-openstack-heat/)
+[^1]: See the About page.
+[^2]: [An Introduction to OpenStack Heat](http://blog.oddbit.com/2013/12/06/an-introduction-to-openstack-heat/)
