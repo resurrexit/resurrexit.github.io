@@ -57,7 +57,7 @@ Now that we have an Ironic node to deploy our Heat template on, let's get starte
 a stack using the template:
 
 ```
-git clone https://github.com/resurrexit/freeipa-heat-template
+git clone https://github.com/resurrexit/freeipa-heat-template.git
 heat stack-create --template freeipa_server.yaml
 ```
 
