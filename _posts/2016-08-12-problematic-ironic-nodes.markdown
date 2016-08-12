@@ -1,6 +1,7 @@
 ---
 layout: post
 title: "Problematic Ironic Nodes"
+date: 2016-08-12T14:43:58-04:00
 ---
 
 Introduction
