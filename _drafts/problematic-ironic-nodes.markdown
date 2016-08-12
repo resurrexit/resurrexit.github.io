@@ -30,6 +30,19 @@ allowed. See this state machine diagram for more information:
 {% img center /assets/images/states.svg 'state machine diagram' %}
 [Image source](find the ironic documentation site where this pic is from)
 
+For example, the only operation an Ironic node in a `deploy failed` state will complete is
+`deleted`. So, if you want to get your node to the 'Available' state, first set its state
+to be `deleted`. From there, clean it; after the clean operation completes, the node will
+be available.
+
+You will want to do something like:
+
+```
+ironic node-set-provision-state <node_uuid> manage
+```
+
+[How to set Ironic Provisioning State](http://blog.johnlikesopenstack.com/2016/04/how-to-set-ironic-provisioning-state-to.html)
+
 Orphaned nodes
 ---------------
 
@@ -77,3 +90,16 @@ $ ironic node-validate 94066ef2-8604-4041-962b-d68ccc5fdf4a
 ```
 
 The provided SSH credentials are incorrect.
+
+This is the part that Juan Antonio Osorio Robles (@jaosorior on IRC) worked on, but apparently it
+seemed that our system did not have the right credentials.
+
+The steps he took to fix it were:
+1. Added the undercloud public key to the authorized keys of the host server
+2. Added the private key of the undercloud to Ironic. For each node do something like:
+
+```
+ironic node-update <node_uuid> add driver_info/ssh_key_contents="$(cat .ssh/id_rsa)"
+```
+
+With this in place, we were finally able to complete the operations we wanted to do.
