@@ -65,7 +65,7 @@
     <h2 id="disclaimerentreaty">Disclaimer/Entreaty</h2>
 
 <p>If you see any technical errors or have any constructive criticism on how to improve the
-template, <em>please</em> contact me!</p>
+template, <em>please</em> contact me!<sup id="fnref:1"><a href="#fn:1" class="footnote">1</a></sup></p>
 
 <h2 id="preparation">Preparation</h2>
 
@@ -111,7 +111,7 @@ neutron subnet-update &lt;subnet_uuid&gt; dns-nameserver=8.8.8.8
 <a href="https://github.com/resurrexit/freeipa-heat-template">this repo</a> and tell Heat to create
 a stack using the template:</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code>git clone https://github.com/resurrexit/freeipa-heat-template
+<div class="highlighter-rouge"><pre class="highlight"><code>git clone https://github.com/resurrexit/freeipa-heat-template.git
 heat stack-create --template freeipa_server.yaml
 </code></pre>
 </div>
@@ -120,16 +120,18 @@ heat stack-create --template freeipa_server.yaml
 
 <p>All parameters in the template have defaults based on tripleo-quickstart.
 Pass in parameters as needed with something like <code class="highlighter-rouge">-p DNSNameserver=8.8.8.8</code> <em>or</em> by using
-an environment file.<sup id="fnref:1"><a href="#fn:1" class="footnote">1</a></sup></p>
+an environment file.<sup id="fnref:2"><a href="#fn:2" class="footnote">2</a></sup></p>
 
 <p>After cloud-init completes, you should have a working FreeIPA server!</p>
 
 <h2 id="footnotes">Footnotes</h2>
-
 <div class="footnotes">
   <ol>
     <li id="fn:1">
-      <p><a href="http://blog.oddbit.com/2013/12/06/an-introduction-to-openstack-heat/">An Introduction to OpenStack Heat</a> <a href="#fnref:1" class="reversefootnote">&#8617;</a></p>
+      <p>See the About page. <a href="#fnref:1" class="reversefootnote">&#8617;</a></p>
+    </li>
+    <li id="fn:2">
+      <p><a href="http://blog.oddbit.com/2013/12/06/an-introduction-to-openstack-heat/">An Introduction to OpenStack Heat</a> <a href="#fnref:2" class="reversefootnote">&#8617;</a></p>
     </li>
   </ol>
 </div>

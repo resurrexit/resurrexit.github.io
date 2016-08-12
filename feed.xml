@@ -6,16 +6,122 @@
 </description>
     <link>http://resurrexit.github.io/</link>
     <atom:link href="http://resurrexit.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Fri, 29 Jul 2016 15:42:57 -0400</pubDate>
-    <lastBuildDate>Fri, 29 Jul 2016 15:42:57 -0400</lastBuildDate>
+    <pubDate>Fri, 12 Aug 2016 14:45:11 -0400</pubDate>
+    <lastBuildDate>Fri, 12 Aug 2016 14:45:11 -0400</lastBuildDate>
     <generator>Jekyll v3.1.6</generator>
+    
+      <item>
+        <title>Problematic Ironic Nodes</title>
+        <description>&lt;h2 id=&quot;introduction&quot;&gt;Introduction&lt;/h2&gt;
+
+&lt;p&gt;Last time, we were trying to reinstall the undercloud so that it used a different IP
+block. The reinstall succeeded, but now the two Ironic nodes that would normally be
+provisioned as a compute node and a control node are in a very strange state.&lt;/p&gt;
+
+&lt;p&gt;The problem: both nodes have the power state ‘None’. Aside from it being very odd, this
+also means that we can’t do anything with the nodes as-is. The power state ‘None’ is a
+bit trickier to debug than the other ‘wrong’ states. There are some tips to help in
+debugging Ironic problems.&lt;/p&gt;
+
+&lt;p&gt;Run &lt;code class=&quot;highlighter-rouge&quot;&gt;ironic node-list&lt;/code&gt;. You want the baremetal nodes to be in the following states: Power
+State == Off, Provisioning State == available, and Maintenance == False.&lt;/p&gt;
+
+&lt;h2 id=&quot;maintenance-mode&quot;&gt;Maintenance mode&lt;/h2&gt;
+
+&lt;p&gt;Nova will not schedule Ironic nodes that are in maintenance mode. If we want to be able to
+schedule a node in maintenance mode, we have to set it to some other state that Ironic
+will allow.&lt;/p&gt;
+
+&lt;p&gt;It is important to note that in any given state there will be state changes that are not
+allowed. See this state machine diagram for more information:
+&lt;img class=&quot;center&quot; src=&quot;/assets/images/states.svg&quot; alt=&quot;&#39;state machine diagram&#39;&quot; /&gt;
+&lt;a href=&quot;find the ironic documentation site where this pic is from&quot;&gt;Image source&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;For example, the only operation an Ironic node in a &lt;code class=&quot;highlighter-rouge&quot;&gt;deploy failed&lt;/code&gt; state will complete is
+&lt;code class=&quot;highlighter-rouge&quot;&gt;deleted&lt;/code&gt;. So, if you want to get your node to the ‘Available’ state, first set its state
+to be &lt;code class=&quot;highlighter-rouge&quot;&gt;deleted&lt;/code&gt;. From there, clean it; after the clean operation completes, the node will
+be available.&lt;/p&gt;
+
+&lt;p&gt;You will want to do something like:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;ironic node-set-provision-state &amp;lt;node_uuid&amp;gt; manage
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;&lt;a href=&quot;http://blog.johnlikesopenstack.com/2016/04/how-to-set-ironic-provisioning-state-to.html&quot;&gt;How to set Ironic Provisioning State&lt;/a&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;orphaned-nodes&quot;&gt;Orphaned nodes&lt;/h2&gt;
+
+&lt;p&gt;You may also have orphaned Ironic nodes, where the node is available, but still has an
+&lt;code class=&quot;highlighter-rouge&quot;&gt;instance_uuid&lt;/code&gt; assigned to it. To check if the node is available, run &lt;code class=&quot;highlighter-rouge&quot;&gt;nova list&lt;/code&gt; and
+&lt;code class=&quot;highlighter-rouge&quot;&gt;heat stack-list&lt;/code&gt;. If the stack is deleted and Nova does not show any servers up and
+running, then the baremetal node is still available.&lt;/p&gt;
+
+&lt;p&gt;This is something that Nova should do upon deletion, but in the case it failed to,
+clear the &lt;code class=&quot;highlighter-rouge&quot;&gt;instance_uuid&lt;/code&gt; the node is holding onto by running&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;ironic node-update &amp;lt;node_uuid&amp;gt; remove instance_uuid
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;Note: don’t do what I did. Do not substitute the actual &lt;code class=&quot;highlighter-rouge&quot;&gt;instance_uuid&lt;/code&gt; in.&lt;/p&gt;
+
+&lt;h2 id=&quot;incorrect-ssh-credentials&quot;&gt;Incorrect SSH credentials&lt;/h2&gt;
+
+&lt;p&gt;You might be trying to do some operation upon Ironic nodes, but coming across the
+error message.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Failed to validate power driver interface. Can not delete instance. Error: SSH connection
+cannot be established: Failed to establish SSH connection to host 192.168.23.1. (HTTP 500)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;To see which parameters are missing, run &lt;code class=&quot;highlighter-rouge&quot;&gt;ironic node-validate &amp;lt;node&amp;gt;&lt;/code&gt;. You might see something
+like this:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;$ ironic node-validate 94066ef2-8604-4041-962b-d68ccc5fdf4a  
++------------+--------+------------------------------------------------------------------------------------------------+  
+| Interface  | Result | Reason                                                                                         |  
++------------+--------+------------------------------------------------------------------------------------------------+  
+| boot       | True   |                                                                                                |  
+| console    | False  | Missing &#39;ssh_terminal_port&#39; parameter in node&#39;s &#39;driver_info&#39;                                  |  
+| deploy     | True   |                                                                                                |  
+| inspect    | True   |                                                                                                |  
+| management | True   |                                                                                                |  
+| power      | False  | SSH connection cannot be established: Failed to establish SSH connection to host 192.168.23.1. |  
+| raid       | True   |                                                                                                |  
++------------+--------+------------------------------------------------------------------------------------------------+  
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;The provided SSH credentials are incorrect.&lt;/p&gt;
+
+&lt;p&gt;This is the part that Juan Antonio Osorio Robles (@jaosorior on IRC) worked on, but apparently it
+seemed that our system did not have the right credentials.&lt;/p&gt;
+
+&lt;p&gt;The steps he took to fix it were:
+1. Added the undercloud public key to the authorized keys of the host server
+2. Added the private key of the undercloud to Ironic. For each node do something like:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;ironic node-update &amp;lt;node_uuid&amp;gt; add driver_info/ssh_key_contents=&quot;$(cat .ssh/id_rsa)&quot;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;With this in place, we were finally able to complete the operations we wanted to do.&lt;/p&gt;
+</description>
+        <pubDate>Fri, 12 Aug 2016 14:43:58 -0400</pubDate>
+        <link>http://resurrexit.github.io/2016/08/12/problematic-ironic-nodes.html</link>
+        <guid isPermaLink="true">http://resurrexit.github.io/2016/08/12/problematic-ironic-nodes.html</guid>
+        
+        
+      </item>
     
       <item>
         <title>Using Heat to deploy a FreeIPA server</title>
         <description>&lt;h2 id=&quot;disclaimerentreaty&quot;&gt;Disclaimer/Entreaty&lt;/h2&gt;
 
 &lt;p&gt;If you see any technical errors or have any constructive criticism on how to improve the
-template, &lt;em&gt;please&lt;/em&gt; contact me!&lt;/p&gt;
+template, &lt;em&gt;please&lt;/em&gt; contact me!&lt;sup id=&quot;fnref:1&quot;&gt;&lt;a href=&quot;#fn:1&quot; class=&quot;footnote&quot;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 
 &lt;h2 id=&quot;preparation&quot;&gt;Preparation&lt;/h2&gt;
 
@@ -61,7 +167,7 @@ neutron subnet-update &amp;lt;subnet_uuid&amp;gt; dns-nameserver=8.8.8.8
 &lt;a href=&quot;https://github.com/resurrexit/freeipa-heat-template&quot;&gt;this repo&lt;/a&gt; and tell Heat to create
 a stack using the template:&lt;/p&gt;
 
-&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;git clone https://github.com/resurrexit/freeipa-heat-template
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;git clone https://github.com/resurrexit/freeipa-heat-template.git
 heat stack-create --template freeipa_server.yaml
 &lt;/code&gt;&lt;/pre&gt;
 &lt;/div&gt;
@@ -70,16 +176,18 @@ heat stack-create --template freeipa_server.yaml
 
 &lt;p&gt;All parameters in the template have defaults based on tripleo-quickstart.
 Pass in parameters as needed with something like &lt;code class=&quot;highlighter-rouge&quot;&gt;-p DNSNameserver=8.8.8.8&lt;/code&gt; &lt;em&gt;or&lt;/em&gt; by using
-an environment file.&lt;sup id=&quot;fnref:1&quot;&gt;&lt;a href=&quot;#fn:1&quot; class=&quot;footnote&quot;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+an environment file.&lt;sup id=&quot;fnref:2&quot;&gt;&lt;a href=&quot;#fn:2&quot; class=&quot;footnote&quot;&gt;2&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 
 &lt;p&gt;After cloud-init completes, you should have a working FreeIPA server!&lt;/p&gt;
 
 &lt;h2 id=&quot;footnotes&quot;&gt;Footnotes&lt;/h2&gt;
-
 &lt;div class=&quot;footnotes&quot;&gt;
   &lt;ol&gt;
     &lt;li id=&quot;fn:1&quot;&gt;
-      &lt;p&gt;&lt;a href=&quot;http://blog.oddbit.com/2013/12/06/an-introduction-to-openstack-heat/&quot;&gt;An Introduction to OpenStack Heat&lt;/a&gt; &lt;a href=&quot;#fnref:1&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+      &lt;p&gt;See the About page. &lt;a href=&quot;#fnref:1&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+    &lt;/li&gt;
+    &lt;li id=&quot;fn:2&quot;&gt;
+      &lt;p&gt;&lt;a href=&quot;http://blog.oddbit.com/2013/12/06/an-introduction-to-openstack-heat/&quot;&gt;An Introduction to OpenStack Heat&lt;/a&gt; &lt;a href=&quot;#fnref:2&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
     &lt;/li&gt;
   &lt;/ol&gt;
 &lt;/div&gt;
